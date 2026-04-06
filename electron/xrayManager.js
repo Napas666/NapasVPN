@@ -1,120 +1,146 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const { generateXrayConfig } = require('./configGenerator');
 const { getXrayExePath } = require('./xrayDownloader');
 
 const SOCKS_PORT = 10808;
-const HTTP_PORT = 10809;
+const HTTP_PORT  = 10809;
 
 let xrayProcess = null;
 let status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
 
 function getXrayPath() {
-  // In dev on macOS: fall back to assets/
   const userDataPath = getXrayExePath();
   if (fs.existsSync(userDataPath)) return userDataPath;
   return path.join(__dirname, '..', 'assets', 'xray.exe');
 }
 
 function getConfigPath() {
-  return path.join(os.tmpdir(), 'vpnet_config.json');
+  return path.join(os.tmpdir(), 'napasvpn_config.json');
+}
+
+/**
+ * Waits until port is actually accepting connections (max ~5s).
+ * This is the real "is xray running" check.
+ */
+function waitForPort(port, host = '127.0.0.1', timeout = 5000) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeout;
+    function attempt() {
+      const sock = new net.Socket();
+      sock.setTimeout(500);
+      sock.on('connect', () => { sock.destroy(); resolve(true); });
+      sock.on('error',   () => { sock.destroy(); retry(); });
+      sock.on('timeout', () => { sock.destroy(); retry(); });
+      sock.connect(port, host);
+    }
+    function retry() {
+      if (Date.now() >= deadline) { resolve(false); return; }
+      setTimeout(attempt, 300);
+    }
+    attempt();
+  });
 }
 
 async function start(vlessKey) {
-  if (xrayProcess) {
-    await stop();
-  }
+  if (xrayProcess) await stop();
 
-  // Parse & generate config
+  // 1. Parse & generate config
   let config;
   try {
     config = generateXrayConfig(vlessKey, SOCKS_PORT, HTTP_PORT);
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: `Ошибка разбора ключа:\n${err.message}` };
   }
 
-  // Write config to temp file
+  // 2. Write config
   const configPath = getConfigPath();
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (err) {
+    return { success: false, error: `Не удалось записать конфиг:\n${err.message}` };
+  }
 
+  // 3. Check xray exists
   const xrayPath = getXrayPath();
   if (!fs.existsSync(xrayPath)) {
     return {
       success: false,
-      error: `xray.exe не найден по пути: ${xrayPath}\nСкачайте xray-core и поместите xray.exe в папку assets/`,
+      error: `xray.exe не найден.\nОжидаемый путь:\n${xrayPath}\n\nПерезапустите приложение — оно скачает движок автоматически.`,
     };
   }
 
-  return new Promise((resolve) => {
-    xrayProcess = spawn(xrayPath, ['run', '-config', configPath], {
-      windowsHide: true,
-    });
+  // 4. Spawn xray
+  let output = '';
 
-    let startupError = '';
+  return new Promise((resolve) => {
+    try {
+      xrayProcess = spawn(xrayPath, ['run', '-config', configPath], {
+        windowsHide: true,
+      });
+    } catch (err) {
+      return resolve({ success: false, error: `Не удалось запустить xray:\n${err.message}` });
+    }
+
     let resolved = false;
 
-    // Give xray 2 seconds to start or fail
-    const timer = setTimeout(() => {
+    const finish = (result) => {
       if (!resolved) {
         resolved = true;
-        if (xrayProcess && xrayProcess.exitCode === null) {
-          status = { connected: true, pid: xrayProcess.pid, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
-          resolve({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT });
-        } else {
-          resolve({ success: false, error: startupError || 'xray не запустился' });
-        }
+        resolve(result);
       }
-    }, 2000);
+    };
 
-    xrayProcess.stderr.on('data', (data) => {
-      const text = data.toString();
-      startupError += text;
-      // xray prints to stderr on success too, check for fatal
-      if (text.includes('started') || text.includes('Xray') || text.includes('V2Ray')) {
-        if (!resolved) {
-          clearTimeout(timer);
-          resolved = true;
-          status = { connected: true, pid: xrayProcess.pid, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
-          resolve({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT });
-        }
-      }
-    });
+    // Collect output from BOTH stdout and stderr
+    const onData = (data) => { output += data.toString(); };
+    xrayProcess.stdout?.on('data', onData);
+    xrayProcess.stderr?.on('data', onData);
 
+    // If xray crashes immediately
     xrayProcess.on('error', (err) => {
-      if (!resolved) {
-        clearTimeout(timer);
-        resolved = true;
-        xrayProcess = null;
-        status.connected = false;
-        resolve({ success: false, error: `Ошибка запуска: ${err.message}` });
-      }
+      xrayProcess = null;
+      finish({ success: false, error: `Ошибка запуска xray:\n${err.message}` });
     });
 
     xrayProcess.on('exit', (code) => {
       xrayProcess = null;
       status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
-      if (!resolved) {
-        clearTimeout(timer);
-        resolved = true;
-        resolve({ success: false, error: startupError || `xray завершился с кодом ${code}` });
+      finish({
+        success: false,
+        error: `xray завершился (код ${code}).\n\nВывод:\n${output.slice(-600) || '(пусто)'}`,
+      });
+    });
+
+    // 5. Give xray up to 6 seconds to open the port — that's the real test
+    waitForPort(SOCKS_PORT, '127.0.0.1', 6000).then((portOpen) => {
+      if (!portOpen) {
+        // xray didn't open port — kill it and report
+        xrayProcess?.kill();
+        xrayProcess = null;
+        finish({
+          success: false,
+          error: `xray запустился, но порт ${SOCKS_PORT} не открылся.\n\nВывод:\n${output.slice(-600) || '(пусто)'}`,
+        });
+        return;
       }
+
+      // Port is open — success
+      status = { connected: true, pid: xrayProcess?.pid ?? null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
+      finish({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT });
     });
   });
 }
 
 async function stop() {
   if (xrayProcess) {
-    xrayProcess.kill('SIGTERM');
+    xrayProcess.kill();
     xrayProcess = null;
   }
   status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
-
-  // Clean up temp config
-  try {
-    fs.unlinkSync(getConfigPath());
-  } catch (_) {}
+  try { fs.unlinkSync(getConfigPath()); } catch (_) {}
 }
 
 function getStatus() {
