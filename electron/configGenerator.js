@@ -58,6 +58,7 @@ function generateXrayConfig(vlessUrl, socksPort = 10808, httpPort = 10809) {
     sid = '',
     spx = '/',
     flow = '',
+    // mux is intentionally ignored — incompatible with xtls-rprx-vision
   } = params;
 
   // Build stream settings based on security
