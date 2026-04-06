@@ -8,6 +8,7 @@ import StatusInfo from './components/StatusInfo';
 import DownloadScreen from './components/DownloadScreen';
 import MapView from './components/MapView';
 import IdentityView from './components/IdentityView';
+import JellyfishCanvas from './components/JellyfishCanvas';
 import './App.css';
 
 const api = window.vpnAPI;
@@ -92,6 +93,9 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
+              {/* Jellyfish background */}
+              <JellyfishCanvas width={380} height={500} />
+
               {/* Logo */}
               <motion.div
                 className="logo-area"
