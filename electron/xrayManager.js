@@ -80,6 +80,8 @@ async function start(vlessKey) {
     try {
       xrayProcess = spawn(xrayPath, ['run', '-config', configPath], {
         windowsHide: true,
+        // xray looks for geoip.dat / geosite.dat in its own directory
+        cwd: path.dirname(xrayPath),
       });
     } catch (err) {
       return resolve({ success: false, error: `Не удалось запустить xray:\n${err.message}` });
