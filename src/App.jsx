@@ -10,6 +10,7 @@ import MapView from './components/MapView';
 import IdentityView from './components/IdentityView';
 import JellyfishCanvas from './components/JellyfishCanvas';
 import TrafficView from './components/TrafficView';
+import AboutView from './components/AboutView';
 import './App.css';
 
 const api = window.vpnAPI;
@@ -238,6 +239,20 @@ export default function App() {
               transition={{ duration: 0.2 }}
             >
               <IdentityView isConnected={isConnected} />
+            </motion.div>
+          )}
+
+          {/* ── ABOUT TAB ── */}
+          {tab === 'about' && (
+            <motion.div
+              key="about"
+              className="app-body no-pad"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <AboutView />
             </motion.div>
           )}
         </AnimatePresence>
