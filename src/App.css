@@ -336,3 +336,65 @@ html, body, #root { width:100%; height:100%; background:transparent; }
 .id-value { color:var(--text); font-weight:500; text-align:right; word-break:break-all; font-size:10.5px; }
 .id-value.rg   { color:#ff5040; }
 .id-value.mono { font-family:monospace; font-size:10px; }
+
+/* ── Traffic view ───────────────────────────────────────── */
+.trafficview { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+.tv-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 14px 8px; border-bottom:1px solid rgba(180,30,30,0.2);
+  flex-shrink:0; background:rgba(6,2,10,0.5); backdrop-filter:blur(10px);
+}
+.tv-title { font-size:13px; font-weight:800; color:#ff4030; letter-spacing:1.5px; text-shadow:0 0 20px rgba(255,40,30,0.5); }
+.tv-subtitle { font-size:10px; color:var(--muted); margin-top:2px; }
+.tv-status-dot {
+  width:9px; height:9px; border-radius:50%; flex-shrink:0;
+  transition:background 0.3s, box-shadow 0.3s;
+}
+.tv-status-dot.on  { background:var(--green); box-shadow:0 0 8px rgba(34,197,94,0.7); animation:pulse-green 2s infinite; }
+.tv-status-dot.off { background:var(--muted); }
+
+.tv-content {
+  flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0;
+  scrollbar-width:thin; scrollbar-color:rgba(180,30,30,0.3) transparent;
+}
+.tv-content::-webkit-scrollbar { width:4px; }
+.tv-content::-webkit-scrollbar-track { background:transparent; }
+.tv-content::-webkit-scrollbar-thumb { background:rgba(180,30,30,0.3); border-radius:2px; }
+
+.tv-section { padding:10px 12px 8px; border-bottom:1px solid rgba(180,30,30,0.12); }
+.tv-section:last-child { border-bottom:none; }
+.tv-section-title { font-size:8.5px; font-weight:700; color:rgba(200,80,70,0.5); letter-spacing:1.2px; text-transform:uppercase; margin-bottom:8px; }
+
+.tv-canvas-wrap { position:relative; border-radius:10px; overflow:hidden; background:rgba(8,2,14,0.6); border:1px solid rgba(180,30,30,0.2); }
+.tv-canvas-overlay {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(6,2,10,0.7); font-size:11px; color:var(--muted);
+  backdrop-filter:blur(4px); border-radius:10px;
+}
+
+.tv-graphs-row { display:flex; align-items:flex-start; gap:0; }
+.tv-graph-divider { width:1px; background:rgba(180,30,30,0.2); align-self:stretch; margin:4px 4px; }
+
+.speed-graph-wrap { flex:1; display:flex; flex-direction:column; gap:3px; }
+.speed-graph-label { font-size:8.5px; font-weight:700; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+.speed-graph-val { font-size:15px; font-weight:800; font-family:monospace; line-height:1; }
+
+.tv-stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.tv-stat-card {
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--radius-sm);
+  padding:7px 8px; display:flex; flex-direction:column; gap:2px; backdrop-filter:blur(10px);
+}
+.tv-stat-icon  { font-size:13px; line-height:1; }
+.tv-stat-label { font-size:8.5px; color:var(--muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+.tv-stat-value { font-size:11px; font-weight:800; font-family:monospace; }
+
+.tv-chain { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+.tv-chain-item { display:flex; align-items:center; gap:4px; }
+.tv-chain-node {
+  padding:4px 8px; background:var(--glass-bg); border:1px solid var(--glass-border);
+  border-radius:var(--radius-sm); font-size:9.5px; font-weight:700;
+  color:rgba(200,140,130,0.7); backdrop-filter:blur(8px); transition:border-color 0.3s;
+}
+.tv-chain-node.active { border-color:rgba(220,40,40,0.45); color:rgba(255,160,140,0.9); }
+.tv-chain-arrow { font-size:12px; color:rgba(200,40,30,0.5); line-height:1; }
