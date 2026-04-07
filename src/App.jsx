@@ -43,9 +43,10 @@ export default function App() {
       setReconnectInfo({ attempt, max });
       setServerInfo(null);
     });
-    api.onReconnected(() => {
+    api.onReconnected((result) => {
       setState('connected');
       setReconnectInfo(null);
+      if (result) setServerInfo(result); // restore connection info panel
     });
     api.onReconnectFailed(() => {
       setState('error');
@@ -80,6 +81,7 @@ export default function App() {
 
   const handleDisconnect = useCallback(async () => {
     setState('disconnecting');
+    setReconnectInfo(null);
     await api.disconnect();
     setState('idle');
     setServerInfo(null);
