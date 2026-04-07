@@ -48,6 +48,7 @@ function createWindow() {
 // ── Auto-reconnect ────────────────────────────────────────────────────────────
 
 let isReconnecting = false;
+let stopReconnect  = false;   // set to true when user manually disconnects
 const MAX_RECONNECT = 3;
 
 xrayManager.onUnexpectedExit(async () => {
@@ -55,26 +56,40 @@ xrayManager.onUnexpectedExit(async () => {
   const key = xrayManager.getLastKey();
   if (!key) return;
 
-  isReconnecting = true;
+  isReconnecting  = true;
+  stopReconnect   = false;
 
   for (let attempt = 1; attempt <= MAX_RECONNECT; attempt++) {
+    if (stopReconnect) break;
+
     mainWindow?.webContents.send('vpn:reconnecting', { attempt, max: MAX_RECONNECT });
-    // Wait before retrying
+
+    // Wait 3 s, but bail early if user disconnected
     await new Promise((r) => setTimeout(r, 3000));
+    if (stopReconnect) break;
 
     try {
       const result = await xrayManager.start(key);
+      if (stopReconnect) {
+        // User disconnected while start() was running — clean up
+        await xrayManager.stop();
+        await proxyManager.disable();
+        break;
+      }
       if (result.success) {
         await proxyManager.enable(result.port);
         isReconnecting = false;
-        mainWindow?.webContents.send('vpn:reconnected');
+        // Pass result so the renderer can restore serverInfo
+        mainWindow?.webContents.send('vpn:reconnected', result);
         return;
       }
     } catch (_) {}
   }
 
   isReconnecting = false;
-  mainWindow?.webContents.send('vpn:reconnect-failed');
+  if (!stopReconnect) {
+    mainWindow?.webContents.send('vpn:reconnect-failed');
+  }
 });
 
 // ── IPC handlers ──────────────────────────────────────────────────────────────
@@ -92,6 +107,7 @@ ipcMain.handle('vpn:connect', async (_event, vlessKey) => {
 });
 
 ipcMain.handle('vpn:disconnect', async () => {
+  stopReconnect = true;   // abort any running reconnect loop
   try {
     await xrayManager.stop();
     await proxyManager.disable();
