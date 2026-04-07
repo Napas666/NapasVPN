@@ -1,120 +1,175 @@
-import { Suspense, useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-// URL works in CRA dev (localhost:3000/jellyfish.glb) and Electron prod (./jellyfish.glb)
-const MODEL_URL = process.env.PUBLIC_URL + '/jellyfish.glb';
+// Works in CRA dev (/jellyfish.glb) and Electron prod (./jellyfish.glb)
+const MODEL_URL = './jellyfish.glb';
 
-// Preload so both instances share one download
-useGLTF.preload(MODEL_URL);
+// Floating config for each jellyfish
+const INSTANCES = [
+  { x: -0.72, y:  0.10, z:  0.00, scale: 1.20, speed: 0.38, phase: 0,            rotDir:  1 },
+  { x:  0.80, y: -0.30, z: -0.70, scale: 0.78, speed: 0.28, phase: Math.PI * 1.3, rotDir: -1 },
+];
 
-// ── One floating jellyfish instance ─────────────────────────────────────────
-function JellyfishInstance({ position, scale, speed, phase, rotDir = 1 }) {
-  const { scene } = useGLTF(MODEL_URL);
-  const groupRef   = useRef();
+export default function JellyfishCanvas() {
+  const mountRef = useRef(null);
 
-  // Clone scene so each instance has independent materials
-  const cloned = useMemo(() => {
-    const c = scene.clone(true);
-    c.traverse((child) => {
-      if (!child.isMesh) return;
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
 
-      // Deep-clone material so instances don't share state
-      const mat = new THREE.MeshStandardMaterial({
-        color:             new THREE.Color(0x5a0000),
-        emissive:          new THREE.Color(0xff1a1a),
-        emissiveIntensity: 1.8,
-        transparent:       true,
-        opacity:           0.82,
-        roughness:         0.25,
-        metalness:         0.05,
-        side:              THREE.DoubleSide,
+    // ── Renderer ────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    renderer.setClearColor(0x000000, 0);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    mount.appendChild(renderer.domElement);
+
+    // ── Scene & Camera ──────────────────────────────────────
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(58, mount.clientWidth / mount.clientHeight, 0.1, 50);
+    camera.position.set(0, 0, 4.2);
+
+    // ── Lights ──────────────────────────────────────────────
+    scene.add(new THREE.AmbientLight(0x1a0000, 0.4));
+
+    const light1 = new THREE.PointLight(0xff2020, 4.0, 9, 2);
+    light1.position.set(0, 1, 2.5);
+    scene.add(light1);
+
+    const light2 = new THREE.PointLight(0xff0000, 2.5, 7, 2);
+    light2.position.set(-2, -0.5, 1.5);
+    scene.add(light2);
+
+    const light3 = new THREE.PointLight(0xff4040, 1.5, 6, 2);
+    light3.position.set(1.5, 2.5, -1);
+    scene.add(light3);
+
+    // ── Bloom post-processing ───────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(mount.clientWidth, mount.clientHeight),
+      2.2,   // strength
+      0.6,   // radius
+      0.04   // threshold — low so even dim emissive glows
+    );
+    composer.addPass(bloomPass);
+
+    // ── Load GLB & create instances ─────────────────────────
+    const groups = [];
+    let raf;
+    let clock = new THREE.Clock();
+
+    const loader = new GLTFLoader();
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        INSTANCES.forEach((cfg, idx) => {
+          const group = new THREE.Group();
+          group.position.set(cfg.x, cfg.y, cfg.z);
+          group.scale.setScalar(cfg.scale);
+
+          // Clone the scene so each instance is independent
+          const clone = gltf.scene.clone(true);
+
+          clone.traverse((child) => {
+            if (!child.isMesh) return;
+
+            // Replace material with neon red emissive
+            child.material = new THREE.MeshStandardMaterial({
+              color:             new THREE.Color(0x4a0000),
+              emissive:          new THREE.Color(0xff1a1a),
+              emissiveIntensity: 2.2,
+              transparent:       true,
+              opacity:           0.88,
+              roughness:         0.30,
+              metalness:         0.05,
+              side:              THREE.DoubleSide,
+            });
+
+            // Keep original texture if present, tint it red
+            if (gltf.scene.children[0]?.material?.map) {
+              const origMat = gltf.scene.children[0].material;
+              child.material.map         = origMat.map;
+              child.material.emissiveMap = origMat.map;
+              child.material.emissiveIntensity = 1.6;
+            }
+          });
+
+          group.add(clone);
+          scene.add(group);
+          groups.push({ group, cfg });
+        });
+      },
+      undefined,
+      (err) => console.warn('GLB load error:', err)
+    );
+
+    // ── Animation loop ──────────────────────────────────────
+    function animate() {
+      raf = requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      // Pulsing lights
+      light1.intensity = 4.0 + Math.sin(t * 0.9) * 0.8;
+      light2.intensity = 2.5 + Math.sin(t * 1.2 + 1.5) * 0.5;
+
+      groups.forEach(({ group, cfg }) => {
+        // Vertical float
+        group.position.y = cfg.y
+          + Math.sin(t * cfg.speed + cfg.phase) * 0.18
+          + Math.sin(t * cfg.speed * 1.7 + cfg.phase + 1.2) * 0.04;
+
+        // Horizontal drift
+        group.position.x = cfg.x
+          + Math.sin(t * cfg.speed * 0.6 + cfg.phase + 0.5) * 0.07;
+
+        // Slow spin
+        group.rotation.y = t * cfg.speed * 0.22 * cfg.rotDir;
+        group.rotation.z = Math.sin(t * cfg.speed * 0.4 + cfg.phase) * 0.06;
+
+        // Organic breathing pulse
+        const pulse = 1 + Math.sin(t * cfg.speed * 2.0 + cfg.phase) * 0.025;
+        group.scale.setScalar(cfg.scale * pulse);
       });
 
-      // If original had a texture, keep it but tint red
-      if (child.material?.map) {
-        mat.map            = child.material.map;
-        mat.emissiveMap    = child.material.map;
-        mat.color          = new THREE.Color(0x3a0000);
-        mat.emissiveIntensity = 1.4;
+      composer.render();
+    }
+
+    animate();
+
+    // ── Cleanup ─────────────────────────────────────────────
+    return () => {
+      cancelAnimationFrame(raf);
+      composer.dispose();
+      renderer.dispose();
+      if (mount.contains(renderer.domElement)) {
+        mount.removeChild(renderer.domElement);
       }
+      groups.forEach(({ group }) => {
+        group.traverse((child) => {
+          if (child.isMesh) {
+            child.geometry?.dispose();
+            child.material?.dispose();
+          }
+        });
+      });
+    };
+  }, []);
 
-      child.material = mat;
-      child.castShadow    = false;
-      child.receiveShadow = false;
-    });
-    return c;
-  }, [scene]);
-
-  useFrame(({ clock }) => {
-    if (!groupRef.current) return;
-    const t = clock.getElapsedTime();
-
-    // Vertical float  — smooth sine wave
-    groupRef.current.position.y =
-      position[1] + Math.sin(t * speed + phase) * 0.18
-                  + Math.sin(t * speed * 1.7 + phase + 1.2) * 0.04;
-
-    // Slight horizontal drift
-    groupRef.current.position.x =
-      position[0] + Math.sin(t * speed * 0.6 + phase + 0.5) * 0.08;
-
-    // Slow spin + subtle tilt
-    groupRef.current.rotation.y  = t * speed * 0.25 * rotDir;
-    groupRef.current.rotation.z  = Math.sin(t * speed * 0.4 + phase) * 0.06;
-
-    // Pulsing scale — organic breathing
-    const pulse = 1 + Math.sin(t * speed * 2.0 + phase) * 0.03;
-    groupRef.current.scale.setScalar(scale * pulse);
-  });
-
-  return (
-    <group ref={groupRef} position={position}>
-      <primitive object={cloned} />
-    </group>
-  );
-}
-
-// ── Scene lights ─────────────────────────────────────────────────────────────
-function Lights() {
-  const light1Ref = useRef();
-  const light2Ref = useRef();
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (light1Ref.current) {
-      // First light orbits slowly — creates moving red caustics on model
-      light1Ref.current.intensity = 3.5 + Math.sin(t * 0.8) * 0.8;
-    }
-    if (light2Ref.current) {
-      light2Ref.current.intensity = 2.0 + Math.sin(t * 1.1 + 1.5) * 0.5;
-    }
-  });
-
-  return (
-    <>
-      <ambientLight intensity={0.05} color="#1a0000" />
-      {/* Main red front light */}
-      <pointLight ref={light1Ref} position={[0, 1, 2.5]} color="#ff2020" intensity={3.5} distance={8} decay={2} />
-      {/* Side fill */}
-      <pointLight ref={light2Ref} position={[-2, -0.5, 1.5]} color="#ff0000" intensity={2.0} distance={6} decay={2} />
-      {/* Subtle top back rim */}
-      <pointLight position={[1, 3, -1]} color="#ff4040" intensity={1.2} distance={5} decay={2} />
-    </>
-  );
-}
-
-// ── Fallback — shown while GLB loads ────────────────────────────────────────
-function Fallback() {
-  return null; // transparent while loading — no flash
-}
-
-// ── Main exported component ──────────────────────────────────────────────────
-export default function JellyfishCanvas({ width = 380, height = 500 }) {
   return (
     <div
+      ref={mountRef}
       style={{
         position: 'absolute',
         inset: 0,
@@ -123,48 +178,6 @@ export default function JellyfishCanvas({ width = 380, height = 500 }) {
         pointerEvents: 'none',
         zIndex: 0,
       }}
-    >
-      <Canvas
-        camera={{ position: [0, 0, 4.2], fov: 58 }}
-        gl={{
-          alpha: true,
-          antialias: true,
-          powerPreference: 'high-performance',
-        }}
-        style={{ background: 'transparent' }}
-        dpr={[1, 1.5]}
-      >
-        <Lights />
-
-        <Suspense fallback={<Fallback />}>
-          {/* Large jellyfish — left-centre */}
-          <JellyfishInstance
-            position={[-0.75, 0.10, 0]}
-            scale={1.25}
-            speed={0.38}
-            phase={0}
-            rotDir={1}
-          />
-          {/* Smaller jellyfish — right, slightly behind */}
-          <JellyfishInstance
-            position={[0.85, -0.35, -0.8]}
-            scale={0.80}
-            speed={0.28}
-            phase={Math.PI * 1.3}
-            rotDir={-1}
-          />
-        </Suspense>
-
-        {/* Bloom gives the neon red glow effect */}
-        <EffectComposer>
-          <Bloom
-            luminanceThreshold={0.05}
-            luminanceSmoothing={0.85}
-            intensity={2.4}
-            radius={0.7}
-          />
-        </EffectComposer>
-      </Canvas>
-    </div>
+    />
   );
 }
