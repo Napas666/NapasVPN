@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 
 const TABS = [
-  { id: 'connect',  label: 'VPN',       icon: '⚡' },
-  { id: 'map',      label: 'Where am I', icon: '🌍' },
-  { id: 'identity', label: 'My Identity', icon: '🕵️' },
+  { id: 'connect',  label: 'VPN',      icon: '⚡' },
+  { id: 'traffic',  label: 'Traffic',  icon: '📡' },
+  { id: 'map',      label: 'Location', icon: '🌍' },
+  { id: 'identity', label: 'Identity', icon: '🕵️' },
 ];
 
 export default function TabBar({ active, onChange }) {
