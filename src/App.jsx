@@ -9,6 +9,7 @@ import DownloadScreen from './components/DownloadScreen';
 import MapView from './components/MapView';
 import IdentityView from './components/IdentityView';
 import JellyfishCanvas from './components/JellyfishCanvas';
+import TrafficView from './components/TrafficView';
 import './App.css';
 
 const api = window.vpnAPI;
@@ -173,6 +174,20 @@ export default function App() {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </motion.div>
+          )}
+
+          {/* ── TRAFFIC TAB ── */}
+          {tab === 'traffic' && (
+            <motion.div
+              key="traffic"
+              className="app-body no-pad"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <TrafficView isConnected={isConnected} />
             </motion.div>
           )}
 
