@@ -319,6 +319,21 @@ function formatUptime(seconds) {
   return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
 }
 
+const api = window.vpnAPI;
+
+function pingColor(ms) {
+  if (ms < 0)   return 'var(--muted)';
+  if (ms < 80)  return '#22c55e';
+  if (ms < 160) return '#f59e0b';
+  return '#ff4030';
+}
+function pingLabel(ms) {
+  if (ms < 0)   return '—';
+  if (ms < 80)  return 'Отлично';
+  if (ms < 160) return 'Хорошо';
+  return 'Высокий';
+}
+
 // ── Main TrafficView ─────────────────────────────────────────────────────────
 export default function TrafficView({ isConnected }) {
   const [upPoints,   setUpPoints]   = useState(Array(30).fill(0));
@@ -327,6 +342,16 @@ export default function TrafficView({ isConnected }) {
   const [totalDown,  setTotalDown]  = useState(0);
   const [uptime,     setUptime]     = useState(0);
   const [startTime]                 = useState(Date.now());
+  const [ping,       setPing]       = useState(-1);
+
+  // Live ping to VPN server every 3s
+  useEffect(() => {
+    if (!isConnected || !api) { setPing(-1); return; }
+    const measure = () => api.ping().then((r) => setPing(r.ok ? r.ms : -1)).catch(() => setPing(-1));
+    measure();
+    const id = setInterval(measure, 3000);
+    return () => clearInterval(id);
+  }, [isConnected]);
 
   // Simulate traffic data (in real app would read from xray API)
   useEffect(() => {
@@ -350,9 +375,6 @@ export default function TrafficView({ isConnected }) {
 
     return () => clearInterval(interval);
   }, [isConnected, startTime]);
-
-  const lastUp   = upPoints[upPoints.length - 1]   || 0;
-  const lastDown = downPoints[downPoints.length - 1] || 0;
 
   return (
     <div className="trafficview">
@@ -387,6 +409,29 @@ export default function TrafficView({ isConnected }) {
             <SpeedGraph points={downPoints} color="#ff3030" label="↓ DOWNLOAD" />
             <div className="tv-graph-divider" />
             <SpeedGraph points={upPoints}   color="#ff7040" label="↑ UPLOAD" />
+          </div>
+        </div>
+
+        {/* Ping */}
+        <div className="tv-section tv-ping-section">
+          <div className="tv-section-title">ПИНГ ДО СЕРВЕРА</div>
+          <div className="tv-ping-row">
+            <div className="tv-ping-value" style={{ color: pingColor(ping) }}>
+              {ping >= 0 ? `${ping} мс` : '—'}
+            </div>
+            <div className="tv-ping-bar-wrap">
+              <div
+                className="tv-ping-bar"
+                style={{
+                  width: ping >= 0 ? `${Math.min(ping / 300 * 100, 100)}%` : '0%',
+                  background: pingColor(ping),
+                  boxShadow: ping >= 0 ? `0 0 8px ${pingColor(ping)}` : 'none',
+                }}
+              />
+            </div>
+            <div className="tv-ping-label" style={{ color: pingColor(ping) }}>
+              {isConnected ? pingLabel(ping) : '—'}
+            </div>
           </div>
         </div>
 
