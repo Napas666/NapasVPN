@@ -3,14 +3,18 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
+const { EventEmitter } = require('events');
 const { generateXrayConfig } = require('./configGenerator');
 const { getXrayExePath } = require('./xrayDownloader');
 
 const SOCKS_PORT = 10808;
 const HTTP_PORT  = 10809;
+const emitter = new EventEmitter();
 
 let xrayProcess = null;
 let status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
+let lastVlessKey = null;
+let userStopped = false;
 
 function getXrayPath() {
   const userDataPath = getXrayExePath();
@@ -24,7 +28,6 @@ function getConfigPath() {
 
 /**
  * Waits until port is actually accepting connections (max ~5s).
- * This is the real "is xray running" check.
  */
 function waitForPort(port, host = '127.0.0.1', timeout = 5000) {
   return new Promise((resolve) => {
@@ -45,7 +48,34 @@ function waitForPort(port, host = '127.0.0.1', timeout = 5000) {
   });
 }
 
+/**
+ * Measures TCP connect latency to host:port (ms), or -1 on failure.
+ */
+function measureLatency(host, port) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    const sock = new net.Socket();
+    sock.setTimeout(3000);
+    sock.on('connect', () => {
+      const ms = Date.now() - t0;
+      sock.destroy();
+      resolve({ ms, ok: true });
+    });
+    sock.on('error',   () => { sock.destroy(); resolve({ ms: -1, ok: false }); });
+    sock.on('timeout', () => { sock.destroy(); resolve({ ms: -1, ok: false }); });
+    sock.connect(port, host);
+  });
+}
+
+function getLastKey() { return lastVlessKey; }
+
+function onUnexpectedExit(cb) {
+  emitter.on('unexpected-exit', cb);
+}
+
 async function start(vlessKey) {
+  userStopped = false;
+  lastVlessKey = vlessKey;
   if (xrayProcess) await stop();
 
   // 1. Parse & generate config
@@ -96,30 +126,34 @@ async function start(vlessKey) {
       }
     };
 
-    // Collect output from BOTH stdout and stderr
     const onData = (data) => { output += data.toString(); };
     xrayProcess.stdout?.on('data', onData);
     xrayProcess.stderr?.on('data', onData);
 
-    // If xray crashes immediately
     xrayProcess.on('error', (err) => {
       xrayProcess = null;
       finish({ success: false, error: `Ошибка запуска xray:\n${err.message}` });
     });
 
     xrayProcess.on('exit', (code) => {
+      // If we already resolved successfully, this is an unexpected crash
+      const wasConnected = resolved;
       xrayProcess = null;
       status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
+
+      if (wasConnected && !userStopped) {
+        emitter.emit('unexpected-exit', { code });
+      }
+
       finish({
         success: false,
         error: `xray завершился (код ${code}).\n\nВывод:\n${output.slice(-600) || '(пусто)'}`,
       });
     });
 
-    // 5. Give xray up to 6 seconds to open the port — that's the real test
+    // 5. Give xray up to 6 seconds to open the port
     waitForPort(SOCKS_PORT, '127.0.0.1', 6000).then((portOpen) => {
       if (!portOpen) {
-        // xray didn't open port — kill it and report
         xrayProcess?.kill();
         xrayProcess = null;
         finish({
@@ -129,7 +163,6 @@ async function start(vlessKey) {
         return;
       }
 
-      // Port is open — success
       status = { connected: true, pid: xrayProcess?.pid ?? null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
       finish({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT });
     });
@@ -137,6 +170,7 @@ async function start(vlessKey) {
 }
 
 async function stop() {
+  userStopped = true;
   if (xrayProcess) {
     xrayProcess.kill();
     xrayProcess = null;
@@ -149,4 +183,4 @@ function getStatus() {
   return { ...status };
 }
 
-module.exports = { start, stop, getStatus };
+module.exports = { start, stop, getStatus, getLastKey, onUnexpectedExit, measureLatency };
