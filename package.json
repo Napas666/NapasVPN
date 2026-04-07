@@ -12,11 +12,7 @@
     "build:win": "react-scripts build && electron-builder --win --x64"
   },
   "dependencies": {
-    "@react-three/drei": "^9.99.0",
-    "@react-three/fiber": "^8.15.0",
-    "@react-three/postprocessing": "^2.16.0",
     "framer-motion": "^10.16.4",
-    "postprocessing": "^6.35.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "three": "^0.160.0"
@@ -52,6 +48,7 @@
     "extraMetadata": {
       "main": "main.js"
     },
+    "asar": false,
     "win": {
       "target": [
         { "target": "nsis",     "arch": ["x64"] },
