@@ -45,6 +45,38 @@ function createWindow() {
   });
 }
 
+// ── Auto-reconnect ────────────────────────────────────────────────────────────
+
+let isReconnecting = false;
+const MAX_RECONNECT = 3;
+
+xrayManager.onUnexpectedExit(async () => {
+  if (isReconnecting) return;
+  const key = xrayManager.getLastKey();
+  if (!key) return;
+
+  isReconnecting = true;
+
+  for (let attempt = 1; attempt <= MAX_RECONNECT; attempt++) {
+    mainWindow?.webContents.send('vpn:reconnecting', { attempt, max: MAX_RECONNECT });
+    // Wait before retrying
+    await new Promise((r) => setTimeout(r, 3000));
+
+    try {
+      const result = await xrayManager.start(key);
+      if (result.success) {
+        await proxyManager.enable(result.port);
+        isReconnecting = false;
+        mainWindow?.webContents.send('vpn:reconnected');
+        return;
+      }
+    } catch (_) {}
+  }
+
+  isReconnecting = false;
+  mainWindow?.webContents.send('vpn:reconnect-failed');
+});
+
 // ── IPC handlers ──────────────────────────────────────────────────────────────
 
 ipcMain.handle('vpn:connect', async (_event, vlessKey) => {
@@ -70,6 +102,16 @@ ipcMain.handle('vpn:disconnect', async () => {
 });
 
 ipcMain.handle('vpn:status', () => xrayManager.getStatus());
+
+// TCP ping to the VPN server (measures actual network latency)
+ipcMain.handle('vpn:ping', async () => {
+  const key = xrayManager.getLastKey();
+  if (!key) return { ms: -1, ok: false };
+  // Parse host:port from vless://UUID@host:port?params
+  const match = key.match(/@([^:@?#[\]]+):(\d+)/);
+  if (!match) return { ms: -1, ok: false };
+  return xrayManager.measureLatency(match[1], parseInt(match[2], 10));
+});
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:close', async () => {
