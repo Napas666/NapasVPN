@@ -20,6 +20,7 @@ export default function App() {
   const [state, setState] = useState('idle');
   const [error, setError] = useState('');
   const [serverInfo, setServerInfo] = useState(null);
+  const [reconnectInfo, setReconnectInfo] = useState(null); // { attempt, max }
 
   // xray download state
   const [xrayReady, setXrayReady] = useState(false);
@@ -35,6 +36,23 @@ export default function App() {
     });
     api.onXrayReady(() => setXrayReady(true));
     api.onXrayError(({ error: e }) => setDlError(e));
+
+    // Auto-reconnect events
+    api.onReconnecting(({ attempt, max }) => {
+      setState('connecting');
+      setReconnectInfo({ attempt, max });
+      setServerInfo(null);
+    });
+    api.onReconnected(() => {
+      setState('connected');
+      setReconnectInfo(null);
+    });
+    api.onReconnectFailed(() => {
+      setState('error');
+      setReconnectInfo(null);
+      setError('Соединение потеряно. Авто-реконнект не удался.');
+      setTimeout(() => setState('idle'), 5000);
+    });
   }, []);
 
   useEffect(() => {
@@ -128,7 +146,9 @@ export default function App() {
                   <span className="status-dot" />
                   <span className="status-text">
                     {state === 'idle'          && 'Отключено'}
-                    {state === 'connecting'    && 'Подключение...'}
+                    {state === 'connecting'    && (reconnectInfo
+                      ? `Реконнект ${reconnectInfo.attempt}/${reconnectInfo.max}...`
+                      : 'Подключение...')}
                     {state === 'connected'     && 'Подключено'}
                     {state === 'disconnecting' && 'Отключение...'}
                     {state === 'error'         && 'Ошибка'}
