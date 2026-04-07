@@ -1,168 +1,120 @@
-import { useEffect, useRef } from 'react';
+import { Suspense, useRef, useMemo } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import * as THREE from 'three';
 
-const JELLYFISH = [
-  { x: 0.22, y: 0.38, size: 88,  speed: 0.28, phase: 0,           driftX: 0.12, driftY: 0.09 },
-  { x: 0.68, y: 0.55, size: 62,  speed: 0.22, phase: Math.PI * 1.3, driftX: 0.09, driftY: 0.11 },
-];
+// URL works in CRA dev (localhost:3000/jellyfish.glb) and Electron prod (./jellyfish.glb)
+const MODEL_URL = process.env.PUBLIC_URL + '/jellyfish.glb';
 
-function drawJellyfish(ctx, jelly, t, W, H) {
-  const { x, y, size, speed, phase, driftX, driftY } = jelly;
+// Preload so both instances share one download
+useGLTF.preload(MODEL_URL);
 
-  const px = (x + Math.sin(t * speed * 0.5 + phase) * driftX) * W;
-  const py = (y + Math.cos(t * speed * 0.4 + phase + 1) * driftY) * H;
+// ── One floating jellyfish instance ─────────────────────────────────────────
+function JellyfishInstance({ position, scale, speed, phase, rotDir = 1 }) {
+  const { scene } = useGLTF(MODEL_URL);
+  const groupRef   = useRef();
 
-  // Pulsing bell
-  const pulse  = 1 + Math.sin(t * speed * 2.2 + phase) * 0.07;
-  const bellW  = size * pulse;
-  const bellH  = size * 0.68;
+  // Clone scene so each instance has independent materials
+  const cloned = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse((child) => {
+      if (!child.isMesh) return;
 
-  ctx.save();
-  ctx.translate(px, py);
+      // Deep-clone material so instances don't share state
+      const mat = new THREE.MeshStandardMaterial({
+        color:             new THREE.Color(0x5a0000),
+        emissive:          new THREE.Color(0xff1a1a),
+        emissiveIntensity: 1.8,
+        transparent:       true,
+        opacity:           0.82,
+        roughness:         0.25,
+        metalness:         0.05,
+        side:              THREE.DoubleSide,
+      });
 
-  // ── Wide ambient glow ───────────────────────────────────────
-  const ambGlow = ctx.createRadialGradient(0, -bellH * 0.3, 0, 0, 0, size * 2.2);
-  ambGlow.addColorStop(0,   'rgba(255, 30, 30, 0.18)');
-  ambGlow.addColorStop(0.4, 'rgba(200, 10, 10, 0.07)');
-  ambGlow.addColorStop(1,   'transparent');
-  ctx.beginPath();
-  ctx.ellipse(0, -bellH * 0.2, size * 2.2, size * 1.8, 0, 0, Math.PI * 2);
-  ctx.fillStyle = ambGlow;
-  ctx.fill();
+      // If original had a texture, keep it but tint red
+      if (child.material?.map) {
+        mat.map            = child.material.map;
+        mat.emissiveMap    = child.material.map;
+        mat.color          = new THREE.Color(0x3a0000);
+        mat.emissiveIntensity = 1.4;
+      }
 
-  // ── Bell shape ──────────────────────────────────────────────
-  ctx.beginPath();
-  ctx.moveTo(-bellW, 0);
-  ctx.bezierCurveTo(-bellW, -bellH * 1.55, bellW, -bellH * 1.55, bellW, 0);
-  ctx.bezierCurveTo(bellW * 0.75, bellH * 0.28, -bellW * 0.75, bellH * 0.28, -bellW, 0);
-  ctx.closePath();
+      child.material = mat;
+      child.castShadow    = false;
+      child.receiveShadow = false;
+    });
+    return c;
+  }, [scene]);
 
-  const bellGrad = ctx.createRadialGradient(-bellW * 0.25, -bellH * 0.55, size * 0.05, 0, -bellH * 0.3, bellW * 1.1);
-  bellGrad.addColorStop(0,   'rgba(255, 100, 80, 0.82)');
-  bellGrad.addColorStop(0.25,'rgba(230,  35, 20, 0.68)');
-  bellGrad.addColorStop(0.6, 'rgba(180,  10,  5, 0.45)');
-  bellGrad.addColorStop(1,   'rgba( 80,   0,  0, 0.18)');
-  ctx.fillStyle = bellGrad;
-  ctx.fill();
+  useFrame(({ clock }) => {
+    if (!groupRef.current) return;
+    const t = clock.getElapsedTime();
 
-  // Bell edge glow
-  ctx.beginPath();
-  ctx.moveTo(-bellW, 0);
-  ctx.bezierCurveTo(-bellW, -bellH * 1.55, bellW, -bellH * 1.55, bellW, 0);
-  ctx.bezierCurveTo(bellW * 0.75, bellH * 0.28, -bellW * 0.75, bellH * 0.28, -bellW, 0);
-  ctx.strokeStyle = 'rgba(255, 80, 60, 0.55)';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+    // Vertical float  — smooth sine wave
+    groupRef.current.position.y =
+      position[1] + Math.sin(t * speed + phase) * 0.18
+                  + Math.sin(t * speed * 1.7 + phase + 1.2) * 0.04;
 
-  // ── Top specular highlight ──────────────────────────────────
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(-bellW * 0.18, -bellH * 1.1, bellW * 0.28, bellH * 0.18, -0.3, 0, Math.PI * 2);
-  const specGrad = ctx.createRadialGradient(-bellW * 0.18, -bellH * 1.1, 0, -bellW * 0.18, -bellH * 1.1, bellW * 0.28);
-  specGrad.addColorStop(0,   'rgba(255,180,160,0.45)');
-  specGrad.addColorStop(1,   'transparent');
-  ctx.fillStyle = specGrad;
-  ctx.fill();
-  ctx.restore();
+    // Slight horizontal drift
+    groupRef.current.position.x =
+      position[0] + Math.sin(t * speed * 0.6 + phase + 0.5) * 0.08;
 
-  // ── Inner radial ribs ───────────────────────────────────────
-  const ribCount = 7;
-  for (let i = 0; i < ribCount; i++) {
-    const ribX = -bellW * 0.85 + (bellW * 1.7 / (ribCount - 1)) * i;
-    ctx.beginPath();
-    ctx.moveTo(ribX, 0);
-    ctx.quadraticCurveTo(ribX * 0.5, -bellH * 0.9, 0, -bellH * 1.3);
-    ctx.strokeStyle = `rgba(255, 70, 50, ${0.12 + (1 - Math.abs(i - ribCount / 2) / ribCount) * 0.12})`;
-    ctx.lineWidth = 0.7;
-    ctx.stroke();
-  }
+    // Slow spin + subtle tilt
+    groupRef.current.rotation.y  = t * speed * 0.25 * rotDir;
+    groupRef.current.rotation.z  = Math.sin(t * speed * 0.4 + phase) * 0.06;
 
-  // ── Oral arms (thick inner tentacles) ──────────────────────
-  const oralCount = 4;
-  for (let i = 0; i < oralCount; i++) {
-    const ox = -bellW * 0.3 + (bellW * 0.6 / (oralCount - 1)) * i;
-    ctx.beginPath();
-    ctx.moveTo(ox, bellH * 0.15);
-    let py2 = bellH * 0.15;
-    let px2 = ox;
-    const len = size * (0.9 + Math.sin(i * 1.7) * 0.3);
-    const segs = 10;
-    for (let s = 1; s <= segs; s++) {
-      py2 = bellH * 0.15 + (len / segs) * s;
-      px2 = ox + Math.sin(t * speed * 1.8 + i * 1.4 + s * 0.6 + phase) * (8 + s * 1.2);
-      ctx.lineTo(px2, py2);
-    }
-    const oralAlpha = 0.55 - i * 0.04;
-    ctx.strokeStyle = `rgba(255, 50, 30, ${oralAlpha})`;
-    ctx.lineWidth = 1.5 - i * 0.1;
-    ctx.stroke();
-  }
-
-  // ── Marginal tentacles ─────────────────────────────────────
-  const tentCount = 16;
-  for (let i = 0; i < tentCount; i++) {
-    const tx2 = -bellW * 0.9 + (bellW * 1.8 / (tentCount - 1)) * i;
-    const tLen = size * (1.1 + Math.sin(i * 1.3 + phase) * 0.5);
-    const segs = 12;
-
-    ctx.beginPath();
-    ctx.moveTo(tx2, 0);
-    for (let s = 1; s <= segs; s++) {
-      const progress = s / segs;
-      const ty = (tLen / segs) * s;
-      const waveAmp = (6 + s * 0.8) * (1 - progress * 0.3);
-      const tx3 = tx2
-        + Math.sin(t * speed * 1.6 + i * 0.7 + s * 0.55 + phase) * waveAmp
-        + Math.sin(t * speed * 2.8 + i * 1.1 + phase) * 3;
-      ctx.lineTo(tx3, ty);
-    }
-    const fade = 0.55 - (i / tentCount) * 0.05;
-    ctx.strokeStyle = `rgba(255, 45, 25, ${fade})`;
-    ctx.lineWidth = 1.0 - (i % 2) * 0.3;
-    ctx.stroke();
-  }
-
-  // ── Short frilly skirt ─────────────────────────────────────
-  const frillCount = 28;
-  for (let i = 0; i < frillCount; i++) {
-    const fx = -bellW * 0.92 + (bellW * 1.84 / (frillCount - 1)) * i;
-    const fLen = size * (0.12 + Math.sin(i * 2.3) * 0.05);
-    const fw = Math.sin(t * speed * 3.5 + i * 0.55 + phase) * 5;
-    ctx.beginPath();
-    ctx.moveTo(fx, 0);
-    ctx.lineTo(fx + fw, fLen);
-    ctx.strokeStyle = 'rgba(255, 90, 60, 0.3)';
-    ctx.lineWidth = 0.6;
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-export default function JellyfishCanvas({ width = 380, height = 500 }) {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    let raf;
-    let t = 0;
-
-    function render() {
-      t += 0.016;
-      ctx.clearRect(0, 0, width, height);
-      JELLYFISH.forEach(j => drawJellyfish(ctx, j, t, width, height));
-      raf = requestAnimationFrame(render);
-    }
-
-    render();
-    return () => cancelAnimationFrame(raf);
-  }, [width, height]);
+    // Pulsing scale — organic breathing
+    const pulse = 1 + Math.sin(t * speed * 2.0 + phase) * 0.03;
+    groupRef.current.scale.setScalar(scale * pulse);
+  });
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
+    <group ref={groupRef} position={position}>
+      <primitive object={cloned} />
+    </group>
+  );
+}
+
+// ── Scene lights ─────────────────────────────────────────────────────────────
+function Lights() {
+  const light1Ref = useRef();
+  const light2Ref = useRef();
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (light1Ref.current) {
+      // First light orbits slowly — creates moving red caustics on model
+      light1Ref.current.intensity = 3.5 + Math.sin(t * 0.8) * 0.8;
+    }
+    if (light2Ref.current) {
+      light2Ref.current.intensity = 2.0 + Math.sin(t * 1.1 + 1.5) * 0.5;
+    }
+  });
+
+  return (
+    <>
+      <ambientLight intensity={0.05} color="#1a0000" />
+      {/* Main red front light */}
+      <pointLight ref={light1Ref} position={[0, 1, 2.5]} color="#ff2020" intensity={3.5} distance={8} decay={2} />
+      {/* Side fill */}
+      <pointLight ref={light2Ref} position={[-2, -0.5, 1.5]} color="#ff0000" intensity={2.0} distance={6} decay={2} />
+      {/* Subtle top back rim */}
+      <pointLight position={[1, 3, -1]} color="#ff4040" intensity={1.2} distance={5} decay={2} />
+    </>
+  );
+}
+
+// ── Fallback — shown while GLB loads ────────────────────────────────────────
+function Fallback() {
+  return null; // transparent while loading — no flash
+}
+
+// ── Main exported component ──────────────────────────────────────────────────
+export default function JellyfishCanvas({ width = 380, height = 500 }) {
+  return (
+    <div
       style={{
         position: 'absolute',
         inset: 0,
@@ -171,6 +123,48 @@ export default function JellyfishCanvas({ width = 380, height = 500 }) {
         pointerEvents: 'none',
         zIndex: 0,
       }}
-    />
+    >
+      <Canvas
+        camera={{ position: [0, 0, 4.2], fov: 58 }}
+        gl={{
+          alpha: true,
+          antialias: true,
+          powerPreference: 'high-performance',
+        }}
+        style={{ background: 'transparent' }}
+        dpr={[1, 1.5]}
+      >
+        <Lights />
+
+        <Suspense fallback={<Fallback />}>
+          {/* Large jellyfish — left-centre */}
+          <JellyfishInstance
+            position={[-0.75, 0.10, 0]}
+            scale={1.25}
+            speed={0.38}
+            phase={0}
+            rotDir={1}
+          />
+          {/* Smaller jellyfish — right, slightly behind */}
+          <JellyfishInstance
+            position={[0.85, -0.35, -0.8]}
+            scale={0.80}
+            speed={0.28}
+            phase={Math.PI * 1.3}
+            rotDir={-1}
+          />
+        </Suspense>
+
+        {/* Bloom gives the neon red glow effect */}
+        <EffectComposer>
+          <Bloom
+            luminanceThreshold={0.05}
+            luminanceSmoothing={0.85}
+            intensity={2.4}
+            radius={0.7}
+          />
+        </EffectComposer>
+      </Canvas>
+    </div>
   );
 }
