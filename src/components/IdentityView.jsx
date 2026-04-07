@@ -30,6 +30,59 @@ export default function IdentityView({ isConnected }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [dnsTest, setDnsTest] = useState(null); // null | 'running' | { results, clean }
+
+  async function runDnsLeakTest() {
+    setDnsTest('running');
+    const results = [];
+
+    // Probe Cloudflare DoH — returns the IP of the DNS resolver Cloudflare sees
+    try {
+      const r = await fetch(
+        'https://cloudflare-dns.com/dns-query?name=whoami.cloudflare.com&type=TXT',
+        { headers: { Accept: 'application/dns-json' }, cache: 'no-store' }
+      );
+      const json = await r.json();
+      const ip = json.Answer?.[0]?.data?.replace(/"/g, '').trim();
+      if (ip) {
+        const geo = await fetch(`http://ip-api.com/json/${ip}?fields=country,isp`).then(x => x.json());
+        results.push({ probe: 'Cloudflare', ip, country: geo.country || '?', isp: geo.isp || '?' });
+      } else {
+        results.push({ probe: 'Cloudflare', ip: null });
+      }
+    } catch (_) {
+      results.push({ probe: 'Cloudflare', ip: null });
+    }
+
+    // Probe Google DoH — returns the IP of the resolver Google sees
+    try {
+      const r = await fetch(
+        'https://dns.google/resolve?name=o-o.myaddr.l.google.com&type=TXT',
+        { cache: 'no-store' }
+      );
+      const json = await r.json();
+      const ip = json.Answer?.[0]?.data?.replace(/"/g, '').trim();
+      if (ip) {
+        const geo = await fetch(`http://ip-api.com/json/${ip}?fields=country,isp`).then(x => x.json());
+        results.push({ probe: 'Google', ip, country: geo.country || '?', isp: geo.isp || '?' });
+      } else {
+        results.push({ probe: 'Google', ip: null });
+      }
+    } catch (_) {
+      results.push({ probe: 'Google', ip: null });
+    }
+
+    // If all resolvers are in the same country as the visible IP → clean
+    const visibleCountry = data?.country?.replace(/\s*\(.*\)/, '') || '';
+    const countries = results.filter(r => r.ip).map(r => r.country);
+    const uniqueCountries = [...new Set(countries)];
+    // Leak = any resolver not in same country as current IP (if connected)
+    const clean = isConnected
+      ? uniqueCountries.length <= 1 && countries.every(c => c === visibleCountry)
+      : null; // can't determine without VPN
+
+    setDnsTest({ results, clean, uniqueCountries });
+  }
 
   async function fetchIdentity() {
     setLoading(true);
@@ -145,6 +198,51 @@ export default function IdentityView({ isConnected }) {
               value={data.timezone2 === data.timezone ? '✓ Да' : '⚠️ Нет — утечка!'}
             />
           </Section>
+
+          {/* DNS Leak Test */}
+          <div className="id-section">
+            <div className="id-section-title">🧬 DNS Leak Test</div>
+            {dnsTest === null && (
+              <button className="dns-test-btn" onClick={runDnsLeakTest}>
+                Запустить проверку DNS
+              </button>
+            )}
+            {dnsTest === 'running' && (
+              <div className="dns-test-running">
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  style={{ display: 'inline-block' }}
+                >↻</motion.span>
+                {' '}Опрашиваем DNS-серверы…
+              </div>
+            )}
+            {dnsTest && dnsTest !== 'running' && (
+              <div className="dns-test-results">
+                <div className={`dns-test-status ${dnsTest.clean === true ? 'clean' : dnsTest.clean === false ? 'leak' : 'info'}`}>
+                  {dnsTest.clean === true  && '✓ Утечек DNS не обнаружено'}
+                  {dnsTest.clean === false && '⚠️ Возможная утечка DNS'}
+                  {dnsTest.clean === null  && 'ℹ️ Включите VPN для полной проверки'}
+                </div>
+                {dnsTest.results.map((r) => (
+                  <div key={r.probe} className="dns-probe-row">
+                    <div className="dns-probe-name">{r.probe}</div>
+                    {r.ip ? (
+                      <>
+                        <div className="dns-probe-ip">{r.ip}</div>
+                        <div className="dns-probe-geo">{r.country} · {r.isp}</div>
+                      </>
+                    ) : (
+                      <div className="dns-probe-ip" style={{ color: 'var(--muted)' }}>Нет ответа</div>
+                    )}
+                  </div>
+                ))}
+                <button className="dns-test-btn dns-test-btn-sm" onClick={runDnsLeakTest}>
+                  Повторить
+                </button>
+              </div>
+            )}
+          </div>
 
         </div>
       )}
