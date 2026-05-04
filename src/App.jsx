@@ -128,9 +128,9 @@ export default function App() {
                 <div className="logo-icon">
                   <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                     <path d="M16 2L4 7V15C4 22.2 9.2 28.8 16 30C22.8 28.8 28 22.2 28 15V7L16 2Z"
-                      stroke="#c4956a" strokeWidth="1.5" fill="rgba(196,149,106,0.08)" strokeLinejoin="round" />
+                      stroke="#ff79b0" strokeWidth="1.5" fill="rgba(255,121,176,0.08)" strokeLinejoin="round" />
                     <path d="M10.5 16L14.5 20L21.5 13"
-                      stroke="#c4956a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+                      stroke="#ff79b0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
                   </svg>
                 </div>
                 <span className="logo-text">NapasVPN</span>

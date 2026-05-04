@@ -5,13 +5,11 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-// In CRA dev:  PUBLIC_URL="" → "/jellyfish.glb" → localhost:3000/jellyfish.glb  ✓
-// In Electron prod (asar:false): PUBLIC_URL="." → "./jellyfish.glb" → build/jellyfish.glb  ✓
-const MODEL_URL = (process.env.PUBLIC_URL || '.') + '/jellyfish.glb';
+const MODEL_URL = (process.env.PUBLIC_URL || '.') + '/axolotl.glb';
 
 const INSTANCES = [
-  { x: -0.72, y:  0.10, z:  0.00, scale: 1.20, speed: 0.38, phase: 0,             rotDir:  1 },
-  { x:  0.82, y: -0.32, z: -0.70, scale: 0.78, speed: 0.28, phase: Math.PI * 1.3, rotDir: -1 },
+  { x: -0.55, y:  0.05, z:  0.00, scale: 1.10, speed: 0.32, phase: 0,             rotDir:  1 },
+  { x:  0.70, y: -0.28, z: -0.60, scale: 0.72, speed: 0.24, phase: Math.PI * 1.3, rotDir: -1 },
 ];
 
 export default function JellyfishCanvas() {
@@ -21,7 +19,6 @@ export default function JellyfishCanvas() {
     const mount = mountRef.current;
     if (!mount) return;
 
-    // ── Renderer ────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -29,47 +26,39 @@ export default function JellyfishCanvas() {
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(mount.clientWidth, mount.clientHeight);
-    renderer.setClearColor(0x000000, 0); // fully transparent background
+    renderer.setClearColor(0x000000, 0);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.3;
     mount.appendChild(renderer.domElement);
 
-    // ── Scene & Camera ──────────────────────────────────────
     const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      58,
-      mount.clientWidth / mount.clientHeight,
-      0.1, 50
-    );
+    const camera = new THREE.PerspectiveCamera(58, mount.clientWidth / mount.clientHeight, 0.1, 50);
     camera.position.set(0, 0, 4.2);
 
-    // ── Lights ──────────────────────────────────────────────
-    scene.add(new THREE.AmbientLight(0x1a0000, 0.5));
+    scene.add(new THREE.AmbientLight(0x1a0510, 0.6));
 
-    const light1 = new THREE.PointLight(0xff2020, 4.5, 9, 2);
+    const light1 = new THREE.PointLight(0xff69b4, 4.5, 9, 2);
     light1.position.set(0, 1, 2.5);
     scene.add(light1);
 
-    const light2 = new THREE.PointLight(0xff0000, 2.8, 7, 2);
+    const light2 = new THREE.PointLight(0xff1493, 2.8, 7, 2);
     light2.position.set(-2, -0.5, 1.5);
     scene.add(light2);
 
-    const light3 = new THREE.PointLight(0xff4040, 1.8, 6, 2);
+    const light3 = new THREE.PointLight(0xffb6c1, 2.0, 6, 2);
     light3.position.set(1.5, 2.5, -1);
     scene.add(light3);
 
-    // ── Post-processing (Bloom = neon glow) ─────────────────
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(mount.clientWidth, mount.clientHeight),
-      2.4,   // strength
-      0.65,  // radius
-      0.02   // threshold — very low so emissive always glows
+      2.2,
+      0.70,
+      0.02
     );
     composer.addPass(bloom);
 
-    // ── Load GLB ────────────────────────────────────────────
     const groups = [];
     let raf;
     const clock = new THREE.Clock();
@@ -83,20 +72,18 @@ export default function JellyfishCanvas() {
           group.position.set(cfg.x, cfg.y, cfg.z);
           group.scale.setScalar(cfg.scale);
 
-          // Deep-clone so each instance has independent nodes & materials
           const clone = gltf.scene.clone(true);
 
           clone.traverse((child) => {
             if (!child.isMesh) return;
-
             child.material = new THREE.MeshStandardMaterial({
-              color:             new THREE.Color(0x3a0000),
-              emissive:          new THREE.Color(0xff1818),
-              emissiveIntensity: 2.4,
+              color:             new THREE.Color(0x2d0a1a),
+              emissive:          new THREE.Color(0xff69b4),
+              emissiveIntensity: 2.2,
               transparent:       true,
-              opacity:           0.90,
-              roughness:         0.28,
-              metalness:         0.04,
+              opacity:           0.92,
+              roughness:         0.30,
+              metalness:         0.05,
               side:              THREE.DoubleSide,
             });
           });
@@ -107,10 +94,9 @@ export default function JellyfishCanvas() {
         });
       },
       undefined,
-      (err) => console.warn('[JellyfishCanvas] GLB load error:', err)
+      (err) => console.warn('[AxolotlCanvas] GLB load error:', err)
     );
 
-    // ── Animation loop ──────────────────────────────────────
     function animate() {
       raf = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
@@ -120,16 +106,16 @@ export default function JellyfishCanvas() {
 
       groups.forEach(({ group, cfg }) => {
         group.position.y = cfg.y
-          + Math.sin(t * cfg.speed + cfg.phase) * 0.18
+          + Math.sin(t * cfg.speed + cfg.phase) * 0.15
           + Math.sin(t * cfg.speed * 1.7 + cfg.phase + 1.2) * 0.04;
 
         group.position.x = cfg.x
-          + Math.sin(t * cfg.speed * 0.6 + cfg.phase + 0.5) * 0.07;
+          + Math.sin(t * cfg.speed * 0.6 + cfg.phase + 0.5) * 0.06;
 
-        group.rotation.y = t * cfg.speed * 0.22 * cfg.rotDir;
-        group.rotation.z = Math.sin(t * cfg.speed * 0.4 + cfg.phase) * 0.06;
+        group.rotation.y = t * cfg.speed * 0.20 * cfg.rotDir;
+        group.rotation.z = Math.sin(t * cfg.speed * 0.4 + cfg.phase) * 0.05;
 
-        const pulse = 1 + Math.sin(t * cfg.speed * 2.0 + cfg.phase) * 0.025;
+        const pulse = 1 + Math.sin(t * cfg.speed * 2.0 + cfg.phase) * 0.022;
         group.scale.setScalar(cfg.scale * pulse);
       });
 
@@ -138,7 +124,6 @@ export default function JellyfishCanvas() {
 
     animate();
 
-    // ── Cleanup ─────────────────────────────────────────────
     return () => {
       cancelAnimationFrame(raf);
       composer.dispose();
