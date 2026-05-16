@@ -138,15 +138,23 @@ ipcMain.on('window:close', async () => {
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
+// Сбрасываем прокси сразу при старте — на случай если прошлая сессия
+// завершилась аварийно и оставила прокси включённым
+proxyManager.disable().catch(() => {});
+
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', async () => {
-  await xrayManager.stop();
-  await proxyManager.disable();
-  app.quit();
+// before-quit не ждёт async — используем event.preventDefault() чтобы
+// дождаться полной очистки прежде чем Electron закроется
+let _quitting = false;
+app.on('before-quit', (event) => {
+  if (_quitting) return;
+  event.preventDefault();
+  _quitting = true;
+  Promise.allSettled([xrayManager.stop(), proxyManager.disable()])
+    .finally(() => app.quit());
 });
 
-app.on('before-quit', async () => {
-  await xrayManager.stop();
-  await proxyManager.disable();
+app.on('window-all-closed', () => {
+  app.quit();
 });
