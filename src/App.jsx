@@ -15,6 +15,26 @@ import './App.css';
 
 const api = window.vpnAPI;
 
+function EyeOffIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+      <path d="M2 2L14 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M6.2 6.3A2.2 2.2 0 0 0 9.6 9.5M4.2 4.4C2.7 5.3 1.6 6.6 1 8c1.3 2.7 4 4.5 7 4.5c1.2 0 2.3-0.3 3.3-0.8M12.5 11C13.7 10.1 14.5 9 15 8c-1.3-2.7-4-4.5-7-4.5c-0.5 0-1 0.05-1.5 0.15"
+        stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+      <path d="M1 8c1.3-2.7 4-4.5 7-4.5s5.7 1.8 7 4.5c-1.3 2.7-4 4.5-7 4.5S2.3 10.7 1 8Z"
+        stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none" />
+      <circle cx="8" cy="8" r="2.1" stroke="currentColor" strokeWidth="1.3" fill="none" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState('connect');
   const [vlessKey, setVlessKey] = useState(() => localStorage.getItem('napasvpn_key') || '');
@@ -22,6 +42,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [serverInfo, setServerInfo] = useState(null);
   const [reconnectInfo, setReconnectInfo] = useState(null); // { attempt, max }
+  const [panelHidden, setPanelHidden] = useState(false); // hide data panel to reveal the figure
 
   // xray download state
   const [xrayReady, setXrayReady] = useState(false);
@@ -170,7 +191,38 @@ export default function App() {
 
               <AnimatePresence>
                 {isConnected && serverInfo && (
-                  <StatusInfo serverInfo={serverInfo} vlessKey={vlessKey} />
+                  <motion.div
+                    key="status-wrap"
+                    className="status-wrap"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <button
+                      className="panel-toggle"
+                      onClick={() => setPanelHidden(h => !h)}
+                      title={panelHidden ? 'Показать данные' : 'Скрыть данные'}
+                      aria-label={panelHidden ? 'Показать данные' : 'Скрыть данные'}
+                    >
+                      {panelHidden ? <EyeIcon /> : <EyeOffIcon />}
+                      <span>{panelHidden ? 'Показать данные' : 'Скрыть данные'}</span>
+                    </button>
+                    <AnimatePresence>
+                      {!panelHidden && (
+                        <motion.div
+                          key="status-info"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.25 }}
+                          style={{ overflow: 'hidden', width: '100%' }}
+                        >
+                          <StatusInfo serverInfo={serverInfo} vlessKey={vlessKey} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
                 )}
               </AnimatePresence>
 

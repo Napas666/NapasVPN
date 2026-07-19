@@ -14,6 +14,7 @@ const emitter = new EventEmitter();
 
 let xrayProcess = null;
 let helperProcess = null; // napas-ss-proxy, only for shadowsocks keys with a prefix
+let helperOutput = '';
 let status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
 let lastVlessKey = null;
 let lastServer = null; // { host, port, protocol, tag, prefix } from the resolved key
@@ -72,12 +73,16 @@ async function startHelper(resolved) {
   helperProcess = spawn(helperPath, ['-config', cfgPath, '-listen', `127.0.0.1:${HELPER_PORT}`], {
     windowsHide: true,
   });
+  helperOutput = '';
+  helperProcess.stdout?.on('data', (d) => { helperOutput += d.toString(); });
+  helperProcess.stderr?.on('data', (d) => { helperOutput += d.toString(); });
   helperProcess.on('exit', () => { helperProcess = null; });
 
   const ok = await waitForPort(HELPER_PORT, '127.0.0.1', 5000);
   if (!ok) {
+    const detail = helperOutput.slice(-300);
     stopHelper();
-    throw new Error(`napas-ss-proxy не открыл порт ${HELPER_PORT}`);
+    throw new Error(`napas-ss-proxy не открыл порт ${HELPER_PORT}${detail ? '\n' + detail : ''}`);
   }
 }
 
@@ -101,6 +106,63 @@ function waitForPort(port, host = '127.0.0.1', timeout = 5000) {
     }
     attempt();
   });
+}
+
+/**
+ * Verifies that real traffic actually flows through the tunnel by sending a
+ * plain-HTTP request for a 204 endpoint via the local HTTP proxy. The request
+ * is fetched from the VPN exit, so this proves the whole chain works — not
+ * just that the local port opened. Tries a couple of endpoints for robustness.
+ */
+function checkConnectivity(httpPort, timeout = 8000) {
+  const endpoints = [
+    { host: 'www.gstatic.com',  path: 'http://www.gstatic.com/generate_204' },
+    { host: 'cp.cloudflare.com', path: 'http://cp.cloudflare.com/generate_204' },
+  ];
+
+  function probe(ep) {
+    return new Promise((resolve) => {
+      const sock = new net.Socket();
+      let done = false;
+      let buf = '';
+      const finish = (ok, detail) => {
+        if (done) return;
+        done = true;
+        try { sock.destroy(); } catch (_) {}
+        resolve({ ok, detail });
+      };
+      sock.setTimeout(timeout);
+      sock.on('timeout', () => finish(false, 'timeout'));
+      sock.on('error', (e) => finish(false, e.message));
+      sock.on('connect', () => {
+        sock.write(
+          `GET ${ep.path} HTTP/1.1\r\nHost: ${ep.host}\r\n` +
+          `User-Agent: NapasVPN\r\nProxy-Connection: close\r\nConnection: close\r\n\r\n`
+        );
+      });
+      sock.on('data', (d) => {
+        buf += d.toString('latin1');
+        const m = buf.match(/^HTTP\/1\.[01] (\d{3})/);
+        if (m) {
+          const code = parseInt(m[1], 10);
+          // 2xx/3xx via the proxy => tunnel carries traffic.
+          // 502/503/504 => proxy reached but upstream/server unreachable.
+          finish(code >= 200 && code < 400, `HTTP ${code}`);
+        }
+      });
+      sock.connect(httpPort, '127.0.0.1');
+    });
+  }
+
+  return (async () => {
+    let last = 'нет ответа';
+    for (const ep of endpoints) {
+      const r = await probe(ep);
+      if (r.ok) return { ok: true, detail: r.detail };
+      last = r.detail;
+    }
+    return { ok: false, detail: last };
+  })();
 }
 
 /**
@@ -228,8 +290,8 @@ async function start(vlessKey) {
       });
     });
 
-    // 5. Give xray up to 6 seconds to open the port
-    waitForPort(SOCKS_PORT, '127.0.0.1', 6000).then((portOpen) => {
+    // 5. Give xray up to 6 seconds to open the port, then verify real traffic
+    waitForPort(SOCKS_PORT, '127.0.0.1', 6000).then(async (portOpen) => {
       if (!portOpen) {
         xrayProcess?.kill();
         xrayProcess = null;
@@ -237,6 +299,24 @@ async function start(vlessKey) {
         finish({
           success: false,
           error: `xray запустился, но порт ${SOCKS_PORT} не открылся.\n\nВывод:\n${output.slice(-600) || '(пусто)'}`,
+        });
+        return;
+      }
+
+      // Prove the tunnel actually carries traffic — don't just trust the open
+      // port. This turns the old "connected but no VPN" lie into an honest state.
+      const conn = await checkConnectivity(HTTP_PORT);
+      if (!conn.ok) {
+        const via = server.prefix ? '\nВывод модуля:\n' + (helperOutput.slice(-300) || '(пусто)') : '';
+        xrayProcess?.kill();
+        xrayProcess = null;
+        stopHelper();
+        finish({
+          success: false,
+          error:
+            `Туннель поднялся, но интернет через VPN недоступен (${conn.detail}).\n` +
+            `Скорее всего сеть блокирует сервер ${server.host}:${server.port} или он недоступен.\n` +
+            `Попробуйте переподключиться или другой сервер.${via}`,
         });
         return;
       }
