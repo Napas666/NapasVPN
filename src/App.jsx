@@ -43,6 +43,7 @@ export default function App() {
   const [serverInfo, setServerInfo] = useState(null);
   const [reconnectInfo, setReconnectInfo] = useState(null); // { attempt, max }
   const [panelHidden, setPanelHidden] = useState(false); // hide data panel to reveal the figure
+  const [warning, setWarning] = useState(''); // tunnel up but traffic probe failed
 
   // xray download state
   const [xrayReady, setXrayReady] = useState(false);
@@ -68,7 +69,7 @@ export default function App() {
     api.onReconnected((result) => {
       setState('connected');
       setReconnectInfo(null);
-      if (result) setServerInfo(result); // restore connection info panel
+      if (result) { setServerInfo(result); setWarning(result.warning || ''); } // restore connection info panel
     });
     api.onReconnectFailed(() => {
       setState('error');
@@ -88,11 +89,13 @@ export default function App() {
   const handleConnect = useCallback(async () => {
     if (!vlessKey.trim()) { setError('Вставьте ключ (vless:// / ss:// / ssconf://)'); return; }
     setError('');
+    setWarning('');
     setState('connecting');
     const result = await api.connect(vlessKey.trim());
     if (result.success) {
       setState('connected');
       setServerInfo(result);
+      if (result.warning) setWarning(result.warning);
       localStorage.setItem('napasvpn_key', vlessKey.trim());
     } else {
       setState('error');
@@ -104,6 +107,7 @@ export default function App() {
   const handleDisconnect = useCallback(async () => {
     setState('disconnecting');
     setReconnectInfo(null);
+    setWarning('');
     await api.disconnect();
     setState('idle');
     setServerInfo(null);
@@ -199,6 +203,18 @@ export default function App() {
                     exit={{ opacity: 0, y: 8 }}
                     transition={{ duration: 0.25 }}
                   >
+                    <AnimatePresence>
+                      {warning && (
+                        <motion.div
+                          className="warn-msg"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                        >
+                          {warning}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     <button
                       className="panel-toggle"
                       onClick={() => setPanelHidden(h => !h)}

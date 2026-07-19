@@ -114,10 +114,11 @@ function waitForPort(port, host = '127.0.0.1', timeout = 5000) {
  * is fetched from the VPN exit, so this proves the whole chain works — not
  * just that the local port opened. Tries a couple of endpoints for robustness.
  */
-function checkConnectivity(httpPort, timeout = 8000) {
+function checkConnectivity(httpPort, timeout = 10000) {
   const endpoints = [
     { host: 'www.gstatic.com',  path: 'http://www.gstatic.com/generate_204' },
     { host: 'cp.cloudflare.com', path: 'http://cp.cloudflare.com/generate_204' },
+    { host: 'detectportal.firefox.com', path: 'http://detectportal.firefox.com/success.txt' },
   ];
 
   function probe(ep) {
@@ -303,25 +304,26 @@ async function start(vlessKey) {
         return;
       }
 
-      // Prove the tunnel actually carries traffic — don't just trust the open
-      // port. This turns the old "connected but no VPN" lie into an honest state.
+      // Probe whether traffic actually flows. We DON'T kill the connection on
+      // failure — the probe endpoints themselves could be the only thing being
+      // blocked, so we stay connected but surface an honest warning instead of
+      // the old silent "connected but no VPN".
       const conn = await checkConnectivity(HTTP_PORT);
+      status = { connected: true, pid: xrayProcess?.pid ?? null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT, server };
+
       if (!conn.ok) {
-        const via = server.prefix ? '\nВывод модуля:\n' + (helperOutput.slice(-300) || '(пусто)') : '';
-        xrayProcess?.kill();
-        xrayProcess = null;
-        stopHelper();
         finish({
-          success: false,
-          error:
-            `Туннель поднялся, но интернет через VPN недоступен (${conn.detail}).\n` +
-            `Скорее всего сеть блокирует сервер ${server.host}:${server.port} или он недоступен.\n` +
-            `Попробуйте переподключиться или другой сервер.${via}`,
+          success: true,
+          port: HTTP_PORT, socksPort: SOCKS_PORT, server,
+          warning:
+            `Соединение установлено, но проверка трафика не прошла (${conn.detail}).\n` +
+            `Если сайты не открываются — сеть, скорее всего, блокирует сервер ` +
+            `${server.host}:${server.port} (порт ${server.port} часто режут в РФ). ` +
+            `Попробуйте другой сервер/локацию.`,
         });
         return;
       }
 
-      status = { connected: true, pid: xrayProcess?.pid ?? null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT, server };
       finish({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT, server });
     });
   });
