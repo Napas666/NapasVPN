@@ -76,14 +76,23 @@ export default function StatusInfo({ serverInfo, vlessKey }) {
         </>
       )}
       <div className="info-divider" />
-      <div className="info-row">
-        <span className="info-label">HTTP Proxy</span>
-        <span className="info-value green">127.0.0.1:{serverInfo?.httpPort || 10809}</span>
-      </div>
-      <div className="info-row">
-        <span className="info-label">SOCKS5</span>
-        <span className="info-value green">127.0.0.1:{serverInfo?.socksPort || 10808}</span>
-      </div>
+      {serverInfo?.mode === 'tun' ? (
+        <div className="info-row">
+          <span className="info-label">Routing</span>
+          <span className="info-value green">TUN · весь трафик</span>
+        </div>
+      ) : (
+        <>
+          <div className="info-row">
+            <span className="info-label">HTTP Proxy</span>
+            <span className="info-value green">127.0.0.1:{serverInfo?.httpPort || 10809}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">SOCKS5</span>
+            <span className="info-value green">127.0.0.1:{serverInfo?.socksPort || 10808}</span>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }

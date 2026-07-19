@@ -6,5 +6,8 @@ dist/
 assets/xray.exe
 assets/napas-ss-proxy
 assets/napas-ss-proxy.exe
+assets/sing-box
+assets/sing-box.exe
+assets/wintun.dll
 *.zip
 .env

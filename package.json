@@ -74,7 +74,9 @@
       "node_modules/**/*"
     ],
     "extraResources": [
-      { "from": "assets/napas-ss-proxy.exe", "to": "napas-ss-proxy.exe" }
+      { "from": "assets/napas-ss-proxy.exe", "to": "napas-ss-proxy.exe" },
+      { "from": "assets/sing-box.exe", "to": "sing-box.exe" },
+      { "from": "assets/wintun.dll", "to": "wintun.dll" }
     ],
     "directories": {
       "output": "dist",

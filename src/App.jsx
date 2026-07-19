@@ -194,6 +194,19 @@ export default function App() {
               />
 
               <AnimatePresence>
+                {isConnected && warning && (
+                  <motion.div
+                    className="warn-msg"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                  >
+                    ⚠ {warning}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
                 {isConnected && serverInfo && (
                   <motion.div
                     key="status-wrap"

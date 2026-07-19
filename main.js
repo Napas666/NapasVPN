@@ -2,7 +2,9 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-const xrayManager = require('./electron/xrayManager');
+// Dispatches vless → xray (system proxy) and ss/ssconf → TUN (sing-box + Outline
+// prefix helper). Same interface as the old xrayManager.
+const xrayManager = require('./electron/connectionManager');
 const proxyManager = require('./electron/proxyManager');
 const { ensureXray } = require('./electron/xrayDownloader');
 
@@ -77,7 +79,8 @@ xrayManager.onUnexpectedExit(async () => {
         break;
       }
       if (result.success) {
-        await proxyManager.enable(result.port);
+        // TUN mode captures traffic device-wide — no system proxy needed.
+        if (result.mode !== 'tun' && result.port) await proxyManager.enable(result.port);
         isReconnecting = false;
         // Pass result so the renderer can restore serverInfo
         mainWindow?.webContents.send('vpn:reconnected', result);
@@ -97,7 +100,7 @@ xrayManager.onUnexpectedExit(async () => {
 ipcMain.handle('vpn:connect', async (_event, vlessKey) => {
   try {
     const result = await xrayManager.start(vlessKey);
-    if (result.success) {
+    if (result.success && result.mode !== 'tun' && result.port) {
       await proxyManager.enable(result.port);
     }
     return result;

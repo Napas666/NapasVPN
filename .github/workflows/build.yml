@@ -28,6 +28,17 @@ jobs:
         working-directory: helper
         run: go build -o ../assets/napas-ss-proxy.exe .
 
+      - name: Fetch sing-box + wintun (TUN engine)
+        shell: pwsh
+        run: |
+          $sb = "1.13.14"
+          Invoke-WebRequest "https://github.com/SagerNet/sing-box/releases/download/v$sb/sing-box-$sb-windows-amd64.zip" -OutFile sb.zip
+          Expand-Archive sb.zip -DestinationPath sb -Force
+          Copy-Item "sb/sing-box-$sb-windows-amd64/sing-box.exe" "assets/sing-box.exe"
+          Invoke-WebRequest "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile wintun.zip
+          Expand-Archive wintun.zip -DestinationPath wt -Force
+          Copy-Item "wt/wintun/bin/amd64/wintun.dll" "assets/wintun.dll"
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
