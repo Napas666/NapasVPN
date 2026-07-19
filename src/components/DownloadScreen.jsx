@@ -11,29 +11,23 @@ export default function DownloadScreen({ percent, message, error }) {
       {/* Logo */}
       <motion.div
         className="dl-logo"
-        animate={{ filter: ['drop-shadow(0 0 8px rgba(196,149,106,0.3))', 'drop-shadow(0 0 20px rgba(196,149,106,0.6))', 'drop-shadow(0 0 8px rgba(196,149,106,0.3))'] }}
+        animate={{ filter: ['drop-shadow(0 0 8px rgba(255,255,255,0.25))', 'drop-shadow(0 0 20px rgba(255,255,255,0.55))', 'drop-shadow(0 0 8px rgba(255,255,255,0.25))'] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
       >
         <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
           <path
             d="M28 4L7 13V27C7 38.9 16.1 49.8 28 52C39.9 49.8 49 38.9 49 27V13L28 4Z"
-            stroke="#c4956a"
+            stroke="#e8e8e8"
             strokeWidth="1.5"
-            fill="rgba(196,149,106,0.06)"
+            fill="rgba(255,255,255,0.04)"
             strokeLinejoin="round"
           />
-          <path
-            d="M18 28L24.5 34.5L38 22"
-            stroke="#c4956a"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.5"
-          />
+          <path d="M28 13V42" stroke="#e8e8e8" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+          <path d="M17.5 22.5H38.5" stroke="#e8e8e8" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
         </svg>
       </motion.div>
 
-      <div className="dl-title">NAPAS VPN</div>
+      <div className="dl-title">Napas VPN</div>
 
       {error ? (
         <div className="dl-error">{error}</div>

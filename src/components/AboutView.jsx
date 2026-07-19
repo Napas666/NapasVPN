@@ -56,10 +56,10 @@ export default function AboutView() {
           initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }}>
           <div className="ab-section-title">ПОЧЕМУ VPN НЕВИДИМ</div>
           <div className="ab-info-block">
-            <Row icon="🛡" text="Reality делает трафик неотличимым от обычного HTTPS. Провайдер видит TLS 1.3 к легитимному сайту (например, apple.com) — никаких VPN-признаков." />
-            <Row icon="🔍" text="Глубокая инспекция пакетов (DPI) не работает: Reality имитирует TLS-handshake реального сервера, алгоритм обнаружения не срабатывает." />
-            <Row icon="🌐" text="DNS-блокировка невозможна: в VLESS-ключе хранится прямой IP сервера, DNS-запросов к нему нет вообще." />
-            <Row icon="🔒" text="Работает в Китае и Иране — странах с жёсткой цензурой, где заблокированы OpenVPN, WireGuard и Shadowsocks." />
+            <Row icon="†" text="Reality делает трафик неотличимым от обычного HTTPS. Провайдер видит TLS 1.3 к легитимному сайту (например, apple.com) — никаких VPN-признаков." />
+            <Row icon="◉" text="Глубокая инспекция пакетов (DPI) не работает: Reality имитирует TLS-handshake реального сервера, алгоритм обнаружения не срабатывает." />
+            <Row icon="◈" text="DNS-блокировка невозможна: в VLESS-ключе хранится прямой IP сервера, DNS-запросов к нему нет вообще." />
+            <Row icon="▣" text="Работает в Китае и Иране — странах с жёсткой цензурой, где заблокированы OpenVPN, WireGuard и Shadowsocks." />
           </div>
         </motion.div>
 
@@ -71,7 +71,7 @@ export default function AboutView() {
             {['Твой ПК', 'xray-core', 'Reality TLS', 'Сервер', 'Интернет'].map((node, i, arr) => (
               <div key={node} className="ab-flow-item">
                 <motion.div className="ab-flow-node"
-                  animate={{ boxShadow: ['0 0 6px rgba(255,35,20,0.25)', '0 0 16px rgba(255,35,20,0.55)', '0 0 6px rgba(255,35,20,0.25)'] }}
+                  animate={{ boxShadow: ['0 0 6px rgba(255,255,255,0.2)', '0 0 16px rgba(255,255,255,0.45)', '0 0 6px rgba(255,255,255,0.2)'] }}
                   transition={{ duration: 2 + i * 0.3, repeat: Infinity }}>
                   {node}
                 </motion.div>

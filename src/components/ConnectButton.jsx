@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-// Shield icon for idle/error, checkmark for connected, spinner for busy
+// Gothic cross-shield for idle/error, filled shield with check for connected, spinner for busy
 function ShieldIcon() {
   return (
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -11,14 +11,8 @@ function ShieldIcon() {
         fill="none"
         strokeLinejoin="round"
       />
-      <path
-        d="M11 16L14.5 19.5L21 13"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.5"
-      />
+      <path d="M16 8.5V22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+      <path d="M10.5 13H21.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
     </svg>
   );
 }
@@ -30,7 +24,7 @@ function CheckShieldIcon() {
         d="M16 3L5 7.5V15C5 21.5 9.8 27.6 16 29C22.2 27.6 27 21.5 27 15V7.5L16 3Z"
         stroke="currentColor"
         strokeWidth="1.5"
-        fill="rgba(95,168,110,0.12)"
+        fill="rgba(255,255,255,0.1)"
         strokeLinejoin="round"
       />
       <path

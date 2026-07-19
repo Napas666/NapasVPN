@@ -121,12 +121,10 @@ ipcMain.handle('vpn:status', () => xrayManager.getStatus());
 
 // TCP ping to the VPN server (measures actual network latency)
 ipcMain.handle('vpn:ping', async () => {
-  const key = xrayManager.getLastKey();
-  if (!key) return { ms: -1, ok: false };
-  // Parse host:port from vless://UUID@host:port?params
-  const match = key.match(/@([^:@?#[\]]+):(\d+)/);
-  if (!match) return { ms: -1, ok: false };
-  return xrayManager.measureLatency(match[1], parseInt(match[2], 10));
+  // Host/port приходят из резолвнутого ключа (работает и для vless://, и для ss(conf)://)
+  const server = xrayManager.getLastServer();
+  if (!server) return { ms: -1, ok: false };
+  return xrayManager.measureLatency(server.host, server.port);
 });
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize());

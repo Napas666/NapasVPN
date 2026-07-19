@@ -36,7 +36,7 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
       // Background arc
       ctx.beginPath();
       ctx.arc(cx, cy, r, startAngle, endAngle);
-      ctx.strokeStyle = 'rgba(180,20,20,0.15)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 5;
       ctx.stroke();
 
@@ -44,11 +44,11 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
       ctx.beginPath();
       ctx.arc(cx, cy, r, startAngle, filled);
       const grad = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
-      grad.addColorStop(0, 'rgba(180,0,0,0.8)');
-      grad.addColorStop(1, 'rgba(255,60,40,1)');
+      grad.addColorStop(0, 'rgba(160,160,160,0.8)');
+      grad.addColorStop(1, 'rgba(255,255,255,1)');
       ctx.strokeStyle = grad;
       ctx.lineWidth = 5;
-      ctx.shadowColor = 'rgba(255,30,20,0.7)';
+      ctx.shadowColor = 'rgba(255,255,255,0.6)';
       ctx.shadowBlur = 10;
       ctx.stroke();
       ctx.shadowBlur = 0;
@@ -60,22 +60,22 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
         ctx.beginPath();
         ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
         ctx.lineTo(cx + Math.cos(angle) * (r + 2), cy + Math.sin(angle) * (r + 2));
-        ctx.strokeStyle = i % 5 === 0 ? 'rgba(255,60,40,0.6)' : 'rgba(180,20,20,0.3)';
+        ctx.strokeStyle = i % 5 === 0 ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.25)';
         ctx.lineWidth = i % 5 === 0 ? 1.5 : 0.8;
         ctx.stroke();
       }
 
       // Center value
-      ctx.fillStyle = '#ff4030';
+      ctx.fillStyle = '#ffffff';
       ctx.font = `bold ${r * 0.42}px monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(255,30,20,0.5)';
+      ctx.shadowColor = 'rgba(255,255,255,0.4)';
       ctx.shadowBlur = 8;
       ctx.fillText(Math.round(value * 100) + '%', cx, cy - 4);
       ctx.shadowBlur = 0;
 
-      ctx.fillStyle = 'rgba(200,100,80,0.6)';
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.font = `600 ${r * 0.22}px Inter,sans-serif`;
       ctx.fillText(label, cx, cy + r * 0.35);
     }
@@ -85,7 +85,7 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
       ctx.clearRect(0, 0, width, height);
 
       // ── Background grid ──────────────────────────────────
-      ctx.strokeStyle = 'rgba(180,20,20,0.06)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
       ctx.lineWidth = 0.5;
       for (let x = 0; x < width; x += 20) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
@@ -104,7 +104,7 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
         const alpha = 0.06 + ring * 0.04;
         ctx.beginPath();
         ctx.arc(coreX, coreY, rr, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(220,30,20,${alpha})`;
+        ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.7})`;
         ctx.lineWidth = 1;
         ctx.stroke();
 
@@ -116,15 +116,15 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
           const dy = coreY + Math.sin(angle) * rr;
           ctx.beginPath();
           ctx.arc(dx, dy, 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,60,40,${0.3 + ring * 0.1})`;
+          ctx.fillStyle = `rgba(255,255,255,${0.25 + ring * 0.08})`;
           ctx.fill();
         }
       }
 
       // ── Core glow ────────────────────────────────────────
       const coreGlow = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, coreR * 1.5);
-      coreGlow.addColorStop(0,   'rgba(255,40,20,0.25)');
-      coreGlow.addColorStop(0.5, 'rgba(180,10,5,0.12)');
+      coreGlow.addColorStop(0,   'rgba(255,255,255,0.22)');
+      coreGlow.addColorStop(0.5, 'rgba(255,255,255,0.08)');
       coreGlow.addColorStop(1,   'transparent');
       ctx.beginPath();
       ctx.arc(coreX, coreY, coreR * 1.5, 0, Math.PI * 2);
@@ -133,32 +133,32 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
 
       // Core body
       const coreBody = ctx.createRadialGradient(coreX - 6, coreY - 6, 2, coreX, coreY, coreR);
-      coreBody.addColorStop(0,   'rgba(255,80,60,0.9)');
-      coreBody.addColorStop(0.4, 'rgba(200,20,10,0.7)');
-      coreBody.addColorStop(1,   'rgba(100,0,0,0.5)');
+      coreBody.addColorStop(0,   'rgba(255,255,255,0.9)');
+      coreBody.addColorStop(0.4, 'rgba(200,200,200,0.7)');
+      coreBody.addColorStop(1,   'rgba(70,70,70,0.5)');
       ctx.beginPath();
       ctx.arc(coreX, coreY, coreR, 0, Math.PI * 2);
       ctx.fillStyle = coreBody;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255,80,60,0.6)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
       // Lock icon in center
-      ctx.fillStyle = 'rgba(255,200,180,0.9)';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.font = '16px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(isConnected ? '🔒' : '🔓', coreX, coreY);
 
       // ── Left zone label ──────────────────────────────────
-      ctx.fillStyle = 'rgba(200,80,60,0.4)';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.font = '600 8px Inter,sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('RAW DATA', width * 0.13, 12);
 
       // ── Right zone label ─────────────────────────────────
-      ctx.fillStyle = 'rgba(80,200,100,0.4)';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('ENCRYPTED', width * 0.83, 12);
 
       // ── Separator lines ──────────────────────────────────
@@ -167,7 +167,7 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
 
       ctx.setLineDash([3, 4]);
       ctx.beginPath(); ctx.moveTo(leftLine,  0); ctx.lineTo(leftLine,  height);
-      ctx.strokeStyle = 'rgba(180,20,20,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(rightLine, 0); ctx.lineTo(rightLine, height);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -191,11 +191,11 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
         let color;
         if (encrypted) {
           const pulse = 0.5 + Math.sin(t * 3 + p.phase) * 0.3;
-          color = `rgba(60,220,100,${pulse * p.alpha})`;
+          color = `rgba(255,255,255,${pulse * p.alpha})`;
         } else if (inCore) {
-          color = `rgba(255,200,100,${p.alpha * 0.8})`;
+          color = `rgba(220,220,220,${p.alpha * 0.8})`;
         } else {
-          color = `rgba(255,${60 + Math.sin(t + p.phase) * 20},40,${p.alpha * 0.7})`;
+          color = `rgba(160,160,160,${p.alpha * (0.5 + Math.sin(t + p.phase) * 0.2)})`;
         }
 
         ctx.fillStyle = color;
@@ -223,7 +223,7 @@ function EncryptionCanvas({ isConnected, width = 340, height = 180 }) {
       matrixDrops.forEach((drop, i) => {
         const char = String.fromCharCode(0x30 + Math.floor(Math.random() * 70));
         const alpha = isConnected ? 0.35 : 0.08;
-        ctx.fillStyle = `rgba(60,220,80,${alpha})`;
+        ctx.fillStyle = `rgba(230,230,230,${alpha})`;
         ctx.fillText(char, matX0 + i * 10, drop * 14);
         matrixDrops[i] = drop > height / 14 + Math.random() * 5 ? 0 : drop + 0.25;
       });
@@ -323,9 +323,9 @@ const api = window.vpnAPI;
 
 function pingColor(ms) {
   if (ms < 0)   return 'var(--muted)';
-  if (ms < 80)  return '#22c55e';
-  if (ms < 160) return '#f59e0b';
-  return '#ff4030';
+  if (ms < 80)  return '#ffffff';
+  if (ms < 160) return '#bdbdbd';
+  return '#8a8a8a';
 }
 function pingLabel(ms) {
   if (ms < 0)   return '—';
@@ -406,9 +406,9 @@ export default function TrafficView({ isConnected }) {
         <div className="tv-section">
           <div className="tv-section-title">СКОРОСТЬ · РЕАЛЬНОЕ ВРЕМЯ</div>
           <div className="tv-graphs-row">
-            <SpeedGraph points={downPoints} color="#ff3030" label="↓ DOWNLOAD" />
+            <SpeedGraph points={downPoints} color="#f2f2f2" label="↓ DOWNLOAD" />
             <div className="tv-graph-divider" />
-            <SpeedGraph points={upPoints}   color="#ff7040" label="↑ UPLOAD" />
+            <SpeedGraph points={upPoints}   color="#9a9a9a" label="↑ UPLOAD" />
           </div>
         </div>
 
@@ -441,12 +441,12 @@ export default function TrafficView({ isConnected }) {
           <div className="tv-stats-grid">
             <AnimatePresence>
               {[
-                { label: 'Получено',   value: formatBytes(totalDown), color: '#ff3030', icon: '↓' },
-                { label: 'Отправлено', value: formatBytes(totalUp),   color: '#ff7040', icon: '↑' },
-                { label: 'Время',      value: formatUptime(uptime),   color: '#ff5050', icon: '⏱' },
-                { label: 'Протокол',   value: 'VLESS',                color: '#ff4030', icon: '⚡' },
-                { label: 'Шифр',       value: 'AES-256',              color: '#ff5040', icon: '🔒' },
-                { label: 'Flow',       value: 'XTLS-Vision',          color: '#ff4040', icon: '🌊' },
+                { label: 'Получено',   value: formatBytes(totalDown), color: '#f2f2f2', icon: '↓' },
+                { label: 'Отправлено', value: formatBytes(totalUp),   color: '#9a9a9a', icon: '↑' },
+                { label: 'Время',      value: formatUptime(uptime),   color: '#cfcfcf', icon: '⧖' },
+                { label: 'Протокол',   value: 'VLESS',                color: '#8a8a8a', icon: '†' },
+                { label: 'Шифр',       value: 'AES-256',              color: '#bdbdbd', icon: '◈' },
+                { label: 'Flow',       value: 'XTLS-Vision',          color: '#e0e0e0', icon: '≋' },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -475,7 +475,7 @@ export default function TrafficView({ isConnected }) {
                 <motion.div
                   className={`tv-chain-node ${isConnected ? 'active' : ''}`}
                   animate={isConnected ? {
-                    boxShadow: ['0 0 6px rgba(255,30,20,0.3)', '0 0 16px rgba(255,30,20,0.6)', '0 0 6px rgba(255,30,20,0.3)']
+                    boxShadow: ['0 0 6px rgba(255,255,255,0.25)', '0 0 16px rgba(255,255,255,0.5)', '0 0 6px rgba(255,255,255,0.25)']
                   } : {}}
                   transition={{ duration: 1.5 + i * 0.2, repeat: Infinity }}
                 >

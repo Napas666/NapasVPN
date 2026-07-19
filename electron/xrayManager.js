@@ -14,6 +14,7 @@ const emitter = new EventEmitter();
 let xrayProcess = null;
 let status = { connected: false, pid: null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
 let lastVlessKey = null;
+let lastServer = null; // { host, port, protocol, tag } from the resolved key
 let userStopped = false;
 
 function getXrayPath() {
@@ -68,6 +69,7 @@ function measureLatency(host, port) {
 }
 
 function getLastKey() { return lastVlessKey; }
+function getLastServer() { return lastServer; }
 
 function onUnexpectedExit(cb) {
   emitter.on('unexpected-exit', cb);
@@ -78,13 +80,14 @@ async function start(vlessKey) {
   lastVlessKey = vlessKey;
   if (xrayProcess) await stop();
 
-  // 1. Parse & generate config
-  let config;
+  // 1. Parse & generate config (ssconf:// keys are fetched over https here)
+  let config, server;
   try {
-    config = generateXrayConfig(vlessKey, SOCKS_PORT, HTTP_PORT);
+    ({ config, server } = await generateXrayConfig(vlessKey, SOCKS_PORT, HTTP_PORT));
   } catch (err) {
     return { success: false, error: `Ошибка разбора ключа:\n${err.message}` };
   }
+  lastServer = server;
 
   // 2. Write config
   const configPath = getConfigPath();
@@ -163,8 +166,8 @@ async function start(vlessKey) {
         return;
       }
 
-      status = { connected: true, pid: xrayProcess?.pid ?? null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT };
-      finish({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT });
+      status = { connected: true, pid: xrayProcess?.pid ?? null, socksPort: SOCKS_PORT, httpPort: HTTP_PORT, server };
+      finish({ success: true, port: HTTP_PORT, socksPort: SOCKS_PORT, server });
     });
   });
 }
@@ -183,4 +186,4 @@ function getStatus() {
   return { ...status };
 }
 
-module.exports = { start, stop, getStatus, getLastKey, onUnexpectedExit, measureLatency };
+module.exports = { start, stop, getStatus, getLastKey, getLastServer, onUnexpectedExit, measureLatency };

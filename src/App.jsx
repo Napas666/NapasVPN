@@ -8,7 +8,7 @@ import StatusInfo from './components/StatusInfo';
 import DownloadScreen from './components/DownloadScreen';
 import MapView from './components/MapView';
 import IdentityView from './components/IdentityView';
-import JellyfishCanvas from './components/JellyfishCanvas';
+import GothicFigure from './components/GothicFigure';
 import TrafficView from './components/TrafficView';
 import AboutView from './components/AboutView';
 import './App.css';
@@ -65,7 +65,7 @@ export default function App() {
   }, []);
 
   const handleConnect = useCallback(async () => {
-    if (!vlessKey.trim()) { setError('Вставьте VLESS-ключ'); return; }
+    if (!vlessKey.trim()) { setError('Вставьте ключ (vless:// / ss:// / ssconf://)'); return; }
     setError('');
     setState('connecting');
     const result = await api.connect(vlessKey.trim());
@@ -115,8 +115,10 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
-              {/* Jellyfish background */}
-              <JellyfishCanvas width={380} height={500} />
+              {/* Gothic figure — revealed when the tunnel is up */}
+              <AnimatePresence>
+                {isConnected && <GothicFigure />}
+              </AnimatePresence>
 
               {/* Logo */}
               <motion.div
@@ -128,9 +130,9 @@ export default function App() {
                 <div className="logo-icon">
                   <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                     <path d="M16 2L4 7V15C4 22.2 9.2 28.8 16 30C22.8 28.8 28 22.2 28 15V7L16 2Z"
-                      stroke="#ff79b0" strokeWidth="1.5" fill="rgba(255,121,176,0.08)" strokeLinejoin="round" />
-                    <path d="M10.5 16L14.5 20L21.5 13"
-                      stroke="#ff79b0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+                      stroke="#e8e8e8" strokeWidth="1.5" fill="rgba(255,255,255,0.05)" strokeLinejoin="round" />
+                    <path d="M16 7.5V23" stroke="#e8e8e8" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+                    <path d="M10 12.5H22" stroke="#e8e8e8" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
                   </svg>
                 </div>
                 <span className="logo-text">NapasVPN</span>

@@ -22,7 +22,12 @@ function extractParam(vlessKey, param) {
 }
 
 export default function StatusInfo({ serverInfo, vlessKey }) {
-  const host = useMemo(() => extractHost(vlessKey), [vlessKey]);
+  const isVless = (vlessKey || '').trim().startsWith('vless://');
+  const resolvedServer = serverInfo?.server;
+  const host = useMemo(
+    () => (isVless ? extractHost(vlessKey) : resolvedServer?.host || '—'),
+    [isVless, vlessKey, resolvedServer]
+  );
   const sni  = useMemo(() => extractParam(vlessKey, 'sni'), [vlessKey]);
   const flow = useMemo(() => extractParam(vlessKey, 'flow'), [vlessKey]);
 
@@ -39,14 +44,31 @@ export default function StatusInfo({ serverInfo, vlessKey }) {
         <span className="info-value">{host}</span>
       </div>
       <div className="info-divider" />
-      <div className="info-row">
-        <span className="info-label">SNI</span>
-        <span className="info-value">{sni}</span>
-      </div>
-      <div className="info-row">
-        <span className="info-label">Flow</span>
-        <span className="info-value">{flow}</span>
-      </div>
+      {isVless ? (
+        <>
+          <div className="info-row">
+            <span className="info-label">SNI</span>
+            <span className="info-value">{sni}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Flow</span>
+            <span className="info-value">{flow}</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="info-row">
+            <span className="info-label">Protocol</span>
+            <span className="info-value">Shadowsocks</span>
+          </div>
+          {resolvedServer?.tag && (
+            <div className="info-row">
+              <span className="info-label">Location</span>
+              <span className="info-value">{resolvedServer.tag}</span>
+            </div>
+          )}
+        </>
+      )}
       <div className="info-divider" />
       <div className="info-row">
         <span className="info-label">HTTP Proxy</span>

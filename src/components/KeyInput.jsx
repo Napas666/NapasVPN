@@ -14,7 +14,7 @@ export default function KeyInput({ value, onChange }) {
 
   return (
     <div>
-      <div className="key-input-label">VLESS KEY</div>
+      <div className="key-input-label">ACCESS KEY</div>
       <div style={{ height: 7 }} />
       <div className="key-input-wrap">
         <textarea
@@ -22,7 +22,7 @@ export default function KeyInput({ value, onChange }) {
           className="key-input"
           value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder="Paste vless:// key here…"
+          placeholder="Paste vless:// / ss:// / ssconf:// key…"
           spellCheck={false}
         />
         <button className="key-paste-btn" onClick={handlePaste} title="Paste from clipboard">

@@ -72,9 +72,9 @@ export default function MapView({ isConnected }) {
         html: `<div style="
           width:18px;height:18px;
           border-radius:50%;
-          background:radial-gradient(circle at 35% 35%, #d9ae87, #c4956a);
+          background:radial-gradient(circle at 35% 35%, #ffffff, #8a8a8a);
           border:2px solid #fff;
-          box-shadow:0 0 12px rgba(196,149,106,0.8), 0 0 0 4px rgba(196,149,106,0.2);
+          box-shadow:0 0 12px rgba(255,255,255,0.7), 0 0 0 4px rgba(255,255,255,0.15);
         "></div>`,
         iconSize: [18, 18],
         iconAnchor: [9, 9],
@@ -167,7 +167,7 @@ export default function MapView({ isConnected }) {
           const L = window.L;
           const icon = L.divIcon({
             className: '',
-            html: `<div style="width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#d9ae87,#c4956a);border:2px solid #fff;box-shadow:0 0 12px rgba(196,149,106,.8)"></div>`,
+            html: `<div style="width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffffff,#8a8a8a);border:2px solid #fff;box-shadow:0 0 12px rgba(255,255,255,.7)"></div>`,
             iconSize: [18, 18], iconAnchor: [9, 9],
           });
           const marker = L.marker([data.lat, data.lon], { icon }).addTo(mapInstanceRef.current);
