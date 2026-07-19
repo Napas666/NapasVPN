@@ -61,6 +61,12 @@ export default function StatusInfo({ serverInfo, vlessKey }) {
             <span className="info-label">Protocol</span>
             <span className="info-value">Shadowsocks</span>
           </div>
+          {resolvedServer?.prefix && (
+            <div className="info-row">
+              <span className="info-label">Obfuscation</span>
+              <span className="info-value green">Outline prefix</span>
+            </div>
+          )}
           {resolvedServer?.tag && (
             <div className="info-row">
               <span className="info-label">Location</span>

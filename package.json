@@ -1,6 +1,6 @@
 {
   "name": "napasvpn",
-  "version": "52.0.0",
+  "version": "53.0.0",
   "description": "NapasVPN — VLESS+Reality client for Windows",
   "main": "main.js",
   "homepage": "./",
@@ -72,6 +72,9 @@
       "preload.js",
       "electron/**/*",
       "node_modules/**/*"
+    ],
+    "extraResources": [
+      { "from": "assets/napas-ss-proxy.exe", "to": "napas-ss-proxy.exe" }
     ],
     "directories": {
       "output": "dist",

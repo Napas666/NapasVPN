@@ -4,5 +4,7 @@ dist/
 *.log
 .DS_Store
 assets/xray.exe
+assets/napas-ss-proxy
+assets/napas-ss-proxy.exe
 *.zip
 .env

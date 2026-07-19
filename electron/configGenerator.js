@@ -164,6 +164,9 @@ async function resolveKey(key) {
       port: parseInt(json.server_port, 10),
       method: json.method,
       password: json.password,
+      // Outline "prefix" — маскирует начало соединения под TLS (обход DPI).
+      // xray его не поддерживает, поэтому такие ключи гоним через napas-ss-proxy.
+      prefix: typeof json.prefix === 'string' ? json.prefix : '',
       tag: json.tag || '',
     };
   }
@@ -252,68 +255,68 @@ function buildProxyOutbound(resolved) {
  * Resolves the key (fetching ssconf if needed) and builds the full xray config.
  * Returns { config, server: { host, port, protocol, tag } }.
  */
-async function generateXrayConfig(key, socksPort = 10808, httpPort = 10809) {
-  const resolved = await resolveKey(key);
-  const proxyOutbound = buildProxyOutbound(resolved);
-
-  const config = {
-    log: {
-      loglevel: 'warning',
+/**
+ * A socks outbound that points xray at a local helper (used for Outline
+ * shadowsocks keys with a prefix, which xray can't speak directly).
+ */
+function socksOutbound(host, port) {
+  return {
+    tag: 'proxy',
+    protocol: 'socks',
+    settings: {
+      servers: [{ address: host, port }],
     },
+  };
+}
+
+/** Wraps a proxy outbound in the standard inbounds/routing xray config. */
+function buildConfig(proxyOutbound, socksPort = 10808, httpPort = 10809) {
+  return {
+    log: { loglevel: 'warning' },
     inbounds: [
       {
         tag: 'socks',
         port: socksPort,
         listen: '127.0.0.1',
         protocol: 'socks',
-        settings: {
-          udp: true,
-          auth: 'noauth',
-        },
+        settings: { udp: true, auth: 'noauth' },
       },
       {
         tag: 'http',
         port: httpPort,
         listen: '127.0.0.1',
         protocol: 'http',
-        settings: {
-          allowTransparent: false,
-        },
+        settings: { allowTransparent: false },
       },
     ],
     outbounds: [
       proxyOutbound,
-      {
-        tag: 'direct',
-        protocol: 'freedom',
-        settings: {},
-      },
-      {
-        tag: 'block',
-        protocol: 'blackhole',
-        settings: { response: { type: 'http' } },
-      },
+      { tag: 'direct', protocol: 'freedom', settings: {} },
+      { tag: 'block', protocol: 'blackhole', settings: { response: { type: 'http' } } },
     ],
     routing: {
       domainStrategy: 'IPIfNonMatch',
-      rules: [
-        {
-          type: 'field',
-          ip: ['geoip:private'],
-          outboundTag: 'direct',
-        },
-      ],
+      rules: [{ type: 'field', ip: ['geoip:private'], outboundTag: 'direct' }],
     },
   };
+}
+
+async function generateXrayConfig(key, socksPort = 10808, httpPort = 10809) {
+  const resolved = await resolveKey(key);
+  const config = buildConfig(buildProxyOutbound(resolved), socksPort, httpPort);
 
   const server = {
     host: resolved.host,
     port: resolved.port,
     protocol: resolved.kind,
     tag: resolved.tag || '',
+    prefix: resolved.prefix || '',
   };
 
   return { config, server };
 }
 
-module.exports = { parseVlessUrl, parseSsUrl, resolveKey, generateXrayConfig };
+module.exports = {
+  parseVlessUrl, parseSsUrl, resolveKey,
+  generateXrayConfig, buildConfig, buildProxyOutbound, socksOutbound,
+};

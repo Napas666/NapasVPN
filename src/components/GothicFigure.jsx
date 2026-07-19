@@ -22,20 +22,21 @@ export default function GothicFigure() {
         alt=""
         draggable={false}
         className="gothic-figure-img"
-        initial={{ scale: 1.22, filter: 'blur(16px) brightness(0.35)', clipPath: 'circle(12% at 47% 55%)' }}
+        initial={{ scale: 1.32, y: -40, filter: 'blur(16px) brightness(0.3)', clipPath: 'circle(11% at 50% 30%)' }}
         animate={{
-          scale: [1.22, 1.05, 1.08, 1.05],
+          scale: [1.32, 1.14, 1.17, 1.14],
+          y: [-40, -40, -40, -40],
           filter: [
-            'blur(16px) brightness(0.35)',
+            'blur(16px) brightness(0.3)',
             'blur(0px) brightness(1)',
             'blur(0px) brightness(1.03)',
             'blur(0px) brightness(1)',
           ],
           clipPath: [
-            'circle(12% at 47% 55%)',
-            'circle(82% at 50% 48%)',
-            'circle(82% at 50% 48%)',
-            'circle(82% at 50% 48%)',
+            'circle(11% at 50% 30%)',
+            'circle(88% at 50% 34%)',
+            'circle(88% at 50% 34%)',
+            'circle(88% at 50% 34%)',
           ],
         }}
         transition={{
