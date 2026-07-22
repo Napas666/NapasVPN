@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('vpnAPI', {
   disconnect: ()         => ipcRenderer.invoke('vpn:disconnect'),
   getStatus:  ()         => ipcRenderer.invoke('vpn:status'),
   ping:       ()         => ipcRenderer.invoke('vpn:ping'),
+  diagnostics:()         => ipcRenderer.invoke('vpn:diagnostics'),
   minimize:   ()         => ipcRenderer.send('window:minimize'),
   close:      ()         => ipcRenderer.send('window:close'),
 

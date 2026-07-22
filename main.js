@@ -130,6 +130,19 @@ ipcMain.handle('vpn:ping', async () => {
   return xrayManager.measureLatency(server.host, server.port);
 });
 
+// Gather full diagnostics, save to the Desktop, and return the text so the
+// renderer can also copy it to the clipboard.
+ipcMain.handle('vpn:diagnostics', async () => {
+  const text = xrayManager.getDiagnostics ? xrayManager.getDiagnostics() : '(нет данных)';
+  let savedPath = null;
+  try {
+    const dir = app.getPath('desktop');
+    savedPath = path.join(dir, 'napasvpn-diagnostics.txt');
+    require('fs').writeFileSync(savedPath, text, 'utf-8');
+  } catch (_) {}
+  return { text, savedPath };
+});
+
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:close', async () => {
   await xrayManager.stop();

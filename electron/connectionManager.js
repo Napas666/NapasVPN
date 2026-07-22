@@ -37,6 +37,11 @@ async function stop() {
   return r || { success: true };
 }
 
+function getDiagnostics() {
+  if (active && active.getDiagnostics) return active.getDiagnostics();
+  return 'Диагностика доступна только для Shadowsocks/Outline-ключей (TUN-режим).';
+}
+
 function getStatus() { return active ? active.getStatus() : { connected: false }; }
 function getLastKey() { return active ? active.getLastKey() : null; }
 function getLastServer() { return active ? active.getLastServer() : null; }
@@ -51,4 +56,4 @@ function onUnexpectedExit(cb) {
   tunManager.onUnexpectedExit((info) => { if (active === tunManager) cb(info); });
 }
 
-module.exports = { start, stop, getStatus, getLastKey, getLastServer, measureLatency, onUnexpectedExit };
+module.exports = { start, stop, getStatus, getLastKey, getLastServer, measureLatency, onUnexpectedExit, getDiagnostics };

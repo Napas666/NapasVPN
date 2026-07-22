@@ -100,7 +100,8 @@ export default function App() {
     } else {
       setState('error');
       setError(result.error || 'Ошибка подключения');
-      setTimeout(() => setState('idle'), 5000);
+      // Keep the error visible (don't auto-clear) so it can be read / copied
+      // for diagnostics. It resets on the next connect attempt.
     }
   }, [vlessKey]);
 
@@ -111,6 +112,20 @@ export default function App() {
     await api.disconnect();
     setState('idle');
     setServerInfo(null);
+  }, []);
+
+  const handleDiagnostics = useCallback(async () => {
+    try {
+      const res = await api.diagnostics();
+      try { await navigator.clipboard.writeText(res.text); } catch (_) {}
+      setWarning(
+        `Диагностика скопирована в буфер обмена и сохранена в файл:\n` +
+        `${res.savedPath || 'на рабочий стол'}\n` +
+        `Пришли этот текст/файл разработчику.`
+      );
+    } catch (e) {
+      setWarning('Не удалось собрать диагностику: ' + (e?.message || e));
+    }
   }, []);
 
   const isConnected = state === 'connected';
@@ -216,27 +231,24 @@ export default function App() {
                     exit={{ opacity: 0, y: 8 }}
                     transition={{ duration: 0.25 }}
                   >
-                    <AnimatePresence>
-                      {warning && (
-                        <motion.div
-                          className="warn-msg"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                        >
-                          {warning}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    <button
-                      className="panel-toggle"
-                      onClick={() => setPanelHidden(h => !h)}
-                      title={panelHidden ? 'Показать данные' : 'Скрыть данные'}
-                      aria-label={panelHidden ? 'Показать данные' : 'Скрыть данные'}
-                    >
-                      {panelHidden ? <EyeIcon /> : <EyeOffIcon />}
-                      <span>{panelHidden ? 'Показать данные' : 'Скрыть данные'}</span>
-                    </button>
+                    <div className="status-toolbar">
+                      <button
+                        className="panel-toggle"
+                        onClick={handleDiagnostics}
+                        title="Сохранить лог на рабочий стол"
+                      >
+                        <span>🩺 Диагностика</span>
+                      </button>
+                      <button
+                        className="panel-toggle"
+                        onClick={() => setPanelHidden(h => !h)}
+                        title={panelHidden ? 'Показать данные' : 'Скрыть данные'}
+                        aria-label={panelHidden ? 'Показать данные' : 'Скрыть данные'}
+                      >
+                        {panelHidden ? <EyeIcon /> : <EyeOffIcon />}
+                        <span>{panelHidden ? 'Показать данные' : 'Скрыть данные'}</span>
+                      </button>
+                    </div>
                     <AnimatePresence>
                       {!panelHidden && (
                         <motion.div
@@ -277,6 +289,12 @@ export default function App() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                    {state === 'error' && (
+                      <button className="panel-toggle" style={{ alignSelf: 'flex-end' }} onClick={handleDiagnostics} title="Сохранить лог на рабочий стол">
+                        <span>🩺 Диагностика</span>
+                      </button>
+                    )}
+                    {warning && <div className="warn-msg" style={{ marginTop: 8 }}>{warning}</div>}
                   </motion.div>
                 )}
               </AnimatePresence>

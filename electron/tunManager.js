@@ -29,6 +29,8 @@ let sbOutput = '';
 let status = { connected: false, pid: null, mode: 'tun' };
 let lastKey = null;
 let lastServer = null;
+let lastSbConfig = null;
+let lastConnCheck = null;
 let userStopped = false;
 
 function resDir() {
@@ -85,18 +87,22 @@ function buildSingboxConfig(serverHost) {
     : { domain: [serverHost], outbound: 'direct' };
 
   return {
-    log: { level: 'warn' },
+    log: { level: 'info' },
     dns: {
+      // Resolve over the tunnel via TCP, IPv4 only — the server is IPv4-only,
+      // so AAAA records would make apps (YouTube/Google/TG) try IPv6 and hang.
       servers: [{ type: 'tcp', tag: 'remote-dns', server: '1.1.1.1', detour: 'proxy' }],
       final: 'remote-dns',
-      strategy: 'prefer_ipv4',
+      strategy: 'ipv4_only',
     },
     inbounds: [{
       type: 'tun',
       tag: 'tun-in',
       interface_name: 'NapasVPN',
       address: ['172.19.0.1/30'],
-      mtu: 1400,
+      // Conservative MTU so large TLS packets aren't dropped after the
+      // shadowsocks/prefix encapsulation (real sites fail while tiny probes pass).
+      mtu: 1280,
       auto_route: true,
       // strict_route off: safer teardown if the process is force-killed on
       // Windows (WinTUN adapters are ephemeral and vanish with the process).
@@ -114,6 +120,9 @@ function buildSingboxConfig(serverHost) {
         { action: 'sniff' },
         { protocol: 'dns', action: 'hijack-dns' },
         bypass,
+        // The helper speaks only TCP, so send all non-DNS UDP (QUIC/HTTP-3) to
+        // reject — apps then fall back to TCP, which the tunnel carries fine.
+        { network: 'udp', action: 'reject' },
       ],
     },
   };
@@ -153,7 +162,8 @@ async function start(key) {
     return { success: false, error: `sing-box не найден:\n${sbPath}` };
   }
   try {
-    fs.writeFileSync(sbConfigPath(), JSON.stringify(buildSingboxConfig(resolved.host), null, 2), 'utf-8');
+    lastSbConfig = buildSingboxConfig(resolved.host);
+    fs.writeFileSync(sbConfigPath(), JSON.stringify(lastSbConfig, null, 2), 'utf-8');
   } catch (err) {
     stopHelper();
     return { success: false, error: `Не удалось записать конфиг TUN:\n${err.message}` };
@@ -195,6 +205,7 @@ async function start(key) {
     setTimeout(async () => {
       if (resolved2) return;
       const conn = await checkConnectivityDirect(10000);
+      lastConnCheck = conn;
       status = { connected: true, pid: sbProcess?.pid ?? null, mode: 'tun', server: lastServer };
       if (!conn.ok) {
         finish({
@@ -219,4 +230,30 @@ async function stop() {
 
 function getSingboxLog() { return sbOutput.slice(-2000); }
 
-module.exports = { start, stop, getStatus, getLastKey, getLastServer, onUnexpectedExit, measureLatency, getSingboxLog, buildSingboxConfig };
+// Full diagnostics text the user can send back so we stop guessing.
+function getDiagnostics() {
+  const lines = [];
+  lines.push('=== NapasVPN diagnostics (TUN mode) ===');
+  lines.push('time: ' + new Date().toISOString());
+  lines.push('platform: ' + process.platform + ' ' + process.arch);
+  lines.push('sing-box: ' + getSingboxPath());
+  lines.push('helper: ' + getHelperPath());
+  lines.push('');
+  lines.push('--- server ---');
+  lines.push(JSON.stringify(lastServer, null, 2));
+  lines.push('');
+  lines.push('--- connectivity probe ---');
+  lines.push(JSON.stringify(lastConnCheck));
+  lines.push('');
+  lines.push('--- sing-box config ---');
+  lines.push(lastSbConfig ? JSON.stringify(lastSbConfig, null, 2) : '(none)');
+  lines.push('');
+  lines.push('--- napas-ss-proxy output ---');
+  lines.push(helperOutput.slice(-1500) || '(empty)');
+  lines.push('');
+  lines.push('--- sing-box output ---');
+  lines.push(sbOutput.slice(-6000) || '(empty)');
+  return lines.join('\n');
+}
+
+module.exports = { start, stop, getStatus, getLastKey, getLastServer, onUnexpectedExit, measureLatency, getSingboxLog, getDiagnostics, buildSingboxConfig };

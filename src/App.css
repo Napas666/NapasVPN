@@ -266,6 +266,7 @@ html, body, #root { width:100%; height:100%; background:transparent; }
 
 /* ── Status panel toggle ────────────────────────────────── */
 .status-wrap { width:100%; display:flex; flex-direction:column; align-items:stretch; gap:8px; position:relative; z-index:2; }
+.status-toolbar { display:flex; gap:6px; justify-content:flex-end; }
 .panel-toggle {
   align-self:flex-end;
   display:flex; align-items:center; gap:6px;
