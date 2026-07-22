@@ -10,7 +10,7 @@
 // The server IP is routed "direct" so the helper's own connection to it does
 // not loop back into the tunnel.
 
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -31,6 +31,7 @@ let lastKey = null;
 let lastServer = null;
 let lastSbConfig = null;
 let lastConnCheck = null;
+let addedRoute = null; // server IP we added a bypass host-route for (Windows)
 let userStopped = false;
 
 function resDir() {
@@ -56,6 +57,37 @@ function getStatus() { return { ...status }; }
 function stopHelper() {
   if (helperProcess) { try { helperProcess.kill(); } catch (_) {} helperProcess = null; }
   try { fs.unlinkSync(helperConfigPath()); } catch (_) {}
+}
+
+// Route the helper's connection to the server OUT the physical interface so it
+// bypasses the TUN entirely (no nested gvisor pass = closer to how the real
+// Outline client works, and avoids stalls on long-lived connections).
+function getDefaultGatewayWin() {
+  try {
+    const out = execSync(
+      `powershell -NoProfile -Command "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Where-Object {$_.NextHop -ne '0.0.0.0'} | Sort-Object RouteMetric | Select-Object -First 1).NextHop"`,
+      { encoding: 'utf-8', timeout: 8000, windowsHide: true }
+    );
+    const gw = (out || '').trim().split(/\s+/)[0];
+    return /^\d+\.\d+\.\d+\.\d+$/.test(gw) ? gw : null;
+  } catch (_) { return null; }
+}
+
+function addServerRouteWin(serverIp) {
+  if (process.platform !== 'win32' || !net.isIP(serverIp)) return;
+  const gw = getDefaultGatewayWin();
+  if (!gw) return; // fall back to sing-box's in-tunnel bypass rule
+  try {
+    execSync(`route add ${serverIp} mask 255.255.255.255 ${gw} metric 1`, { timeout: 8000, windowsHide: true });
+    addedRoute = serverIp;
+  } catch (_) { /* keep the sing-box bypass rule as fallback */ }
+}
+
+function removeServerRouteWin() {
+  if (addedRoute && process.platform === 'win32') {
+    try { execSync(`route delete ${addedRoute}`, { timeout: 8000, windowsHide: true }); } catch (_) {}
+  }
+  addedRoute = null;
 }
 function stopSingbox() {
   if (sbProcess) { try { sbProcess.kill(); } catch (_) {} sbProcess = null; }
@@ -183,6 +215,9 @@ async function start(key) {
       return finish({ success: false, error: `Не удалось запустить sing-box:\n${err.message}` });
     }
 
+    // Send the helper's server connection out the physical NIC (bypass TUN).
+    addServerRouteWin(lastServer.host);
+
     sbOutput = '';
     const onData = (d) => { sbOutput += d.toString(); };
     sbProcess.stdout?.on('data', onData);
@@ -225,6 +260,7 @@ async function stop() {
   userStopped = true;
   stopSingbox();
   stopHelper();
+  removeServerRouteWin();
   status = { connected: false, pid: null, mode: 'tun' };
 }
 
@@ -244,6 +280,7 @@ function getDiagnostics() {
   lines.push('');
   lines.push('--- connectivity probe ---');
   lines.push(JSON.stringify(lastConnCheck));
+  lines.push('server-bypass host-route added: ' + (addedRoute || 'no (using sing-box direct rule)'));
   lines.push('');
   lines.push('--- sing-box config ---');
   lines.push(lastSbConfig ? JSON.stringify(lastSbConfig, null, 2) : '(none)');
