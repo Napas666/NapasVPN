@@ -1,6 +1,6 @@
 {
   "name": "napasvpn",
-  "version": "57.0.0",
+  "version": "58.0.0",
   "description": "NapasVPN — VLESS+Reality client for Windows",
   "main": "main.js",
   "homepage": "./",

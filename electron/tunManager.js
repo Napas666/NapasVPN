@@ -32,6 +32,7 @@ let lastServer = null;
 let lastSbConfig = null;
 let lastConnCheck = null;
 let addedRoute = null; // server IP we added a bypass host-route for (Windows)
+let usedGateway = null; // physical gateway used for the bypass route (diagnostics)
 let userStopped = false;
 
 function resDir() {
@@ -76,8 +77,11 @@ function getDefaultGatewayWin() {
 function addServerRouteWin(serverIp) {
   if (process.platform !== 'win32' || !net.isIP(serverIp)) return;
   const gw = getDefaultGatewayWin();
+  usedGateway = gw;
   if (!gw) return; // fall back to sing-box's in-tunnel bypass rule
   try {
+    // Replace any stale route first, then add ours via the physical gateway.
+    try { execSync(`route delete ${serverIp}`, { timeout: 5000, windowsHide: true }); } catch (_) {}
     execSync(`route add ${serverIp} mask 255.255.255.255 ${gw} metric 1`, { timeout: 8000, windowsHide: true });
     addedRoute = serverIp;
   } catch (_) { /* keep the sing-box bypass rule as fallback */ }
@@ -201,6 +205,11 @@ async function start(key) {
     return { success: false, error: `Не удалось записать конфиг TUN:\n${err.message}` };
   }
 
+  // Pin the helper's route to the server via the PHYSICAL gateway BEFORE
+  // sing-box starts — once its auto_route runs, the default gateway would point
+  // at the TUN and we'd route the server into a dead tunnel (== no internet).
+  addServerRouteWin(lastServer.host);
+
   return new Promise((resolve) => {
     let resolved2 = false;
     const finish = (r) => { if (!resolved2) { resolved2 = true; resolve(r); } };
@@ -212,11 +221,9 @@ async function start(key) {
       });
     } catch (err) {
       stopHelper();
+      removeServerRouteWin();
       return finish({ success: false, error: `Не удалось запустить sing-box:\n${err.message}` });
     }
-
-    // Send the helper's server connection out the physical NIC (bypass TUN).
-    addServerRouteWin(lastServer.host);
 
     sbOutput = '';
     const onData = (d) => { sbOutput += d.toString(); };
@@ -239,18 +246,24 @@ async function start(key) {
     // Give the TUN adapter a few seconds to come up, then verify real traffic.
     setTimeout(async () => {
       if (resolved2) return;
-      const conn = await checkConnectivityDirect(10000);
+      const conn = await checkConnectivityDirect(12000);
       lastConnCheck = conn;
-      status = { connected: true, pid: sbProcess?.pid ?? null, mode: 'tun', server: lastServer };
       if (!conn.ok) {
+        // Do NOT leave the user connected with a dead tunnel — that routes all
+        // traffic into a black hole (== no internet). Tear down and restore.
+        const log = sbOutput.slice(-900);
         finish({
-          success: true, mode: 'tun', server: lastServer,
-          warning:
-            `TUN поднят, но проверка трафика не прошла (${conn.detail}).\n` +
-            `Если сайты не открываются — сообщите, покажу лог sing-box.`,
+          success: false,
+          error:
+            `TUN поднялся, но интернета через VPN нет (${conn.detail}).\n` +
+            `Соединение разорвано, обычный интернет восстановлен.\n` +
+            `Нажмите 🩺 Диагностика и пришлите файл.\n\nЛог sing-box:\n${log}`,
         });
+        await stop();          // kills sing-box + helper, removes the host-route
+        userStopped = false;   // this was our teardown, not a user disconnect
         return;
       }
+      status = { connected: true, pid: sbProcess?.pid ?? null, mode: 'tun', server: lastServer };
       finish({ success: true, mode: 'tun', server: lastServer });
     }, 3500);
   });
@@ -281,6 +294,7 @@ function getDiagnostics() {
   lines.push('--- connectivity probe ---');
   lines.push(JSON.stringify(lastConnCheck));
   lines.push('server-bypass host-route added: ' + (addedRoute || 'no (using sing-box direct rule)'));
+  lines.push('physical gateway detected: ' + (usedGateway || 'none'));
   lines.push('');
   lines.push('--- sing-box config ---');
   lines.push(lastSbConfig ? JSON.stringify(lastSbConfig, null, 2) : '(none)');
