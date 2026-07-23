@@ -1,6 +1,6 @@
 {
   "name": "napasvpn",
-  "version": "58.0.0",
+  "version": "59.0.0",
   "description": "NapasVPN — VLESS+Reality client for Windows",
   "main": "main.js",
   "homepage": "./",
@@ -74,9 +74,7 @@
       "node_modules/**/*"
     ],
     "extraResources": [
-      { "from": "assets/napas-ss-proxy.exe", "to": "napas-ss-proxy.exe" },
-      { "from": "assets/sing-box.exe", "to": "sing-box.exe" },
-      { "from": "assets/wintun.dll", "to": "wintun.dll" }
+      { "from": "assets/outline", "to": "outline" }
     ],
     "directories": {
       "output": "dist",

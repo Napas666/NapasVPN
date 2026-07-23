@@ -76,10 +76,10 @@ export default function StatusInfo({ serverInfo, vlessKey }) {
         </>
       )}
       <div className="info-divider" />
-      {serverInfo?.mode === 'tun' ? (
+      {(serverInfo?.mode === 'tun' || serverInfo?.mode === 'outline') ? (
         <div className="info-row">
           <span className="info-label">Routing</span>
-          <span className="info-value green">TUN · весь трафик</span>
+          <span className="info-value green">{serverInfo?.mode === 'outline' ? 'Outline · весь трафик' : 'TUN · весь трафик'}</span>
         </div>
       ) : (
         <>

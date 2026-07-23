@@ -7,13 +7,15 @@
 // which the proxy path could not achieve.
 
 const xrayManager = require('./xrayManager');
-const tunManager = require('./tunManager');
+const outlineManager = require('./outlineManager');
 
 let active = null; // the engine handling the current/last connection
 
 function engineFor(key) {
   const k = (key || '').trim();
-  if (k.startsWith('ss://') || k.startsWith('ssconf://')) return tunManager;
+  // Shadowsocks/Outline keys go through the vendored Outline engine (the exact
+  // tun2socks + TAP + OutlineService stack that VanyaVPN uses).
+  if (k.startsWith('ss://') || k.startsWith('ssconf://')) return outlineManager;
   return xrayManager; // vless:// (and anything else xray understands)
 }
 
